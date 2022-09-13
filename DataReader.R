@@ -42,11 +42,13 @@ extract <- function(folder_path, absolute_path=FALSE){
     
     i <- i + 1
   }  
+    
+  filenames <- gsub(path, '', filenames)
+  filenames <- gsub('.pdf', '', filenames)
+  filenames <- gsub('/', '', filenames)
   
   result <- tibble(File=filenames,
                    Text=texts)
   
   return(result)
 }
-
-textos <- extract_many('Test', absolute_path = FALSE)
