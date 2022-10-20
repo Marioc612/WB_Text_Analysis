@@ -1,36 +1,63 @@
 library(pdftools)
 library(tidyverse)
+library(tidytext)
 library(glue)
+library(stringr)
+library(cli)
+library(jsonlite)
 
 
 extract <- function(folder_path, absolute_path = FALSE) {
-  print(glue("The extraction process has started. Please, be patient, this ",
-             "process may take a while.\n\n"))
-  
-  stopwords_regex = paste(stop_words$word, collapse = '\\b|\\b')
-  stopwords_regex = paste0('\\b', stopwords_regex, '\\b')  
-  
+  cli_h1(
+    glue(
+      "The extraction process has started. Please, be patient, this ",
+      " may take a while."
+    )
+  )
+
+  # Initializes the function's timer
+  t_0_general <- Sys.time()
+
+  # Creates the stop words regex for cleaning the data using the TidyText's
+  # stop word list
+  stopwords_regex <- paste(stop_words$word, collapse = "\\b|\\b")
+  stopwords_regex <- paste0("\\b", stopwords_regex, "\\b")
+
+  # Sets the conditions for treating the path input as a relative or absolute
+  # path
   if (absolute_path == FALSE) {
     cwd <- dirname(rstudioapi::getSourceEditorContext()$path)
     path <- paste(cwd, folder_path, sep = "/")
   }
-  
+
   if (absolute_path == TRUE) {
     path <- folder_path
   }
-  
-  filenames <- list.files(path, pattern = "*.pdf", full.names = TRUE)
-  
+
+  # Get a list of all PDF files in a folder
+  filenames <-
+    list.files(path, pattern = "*.pdf", full.names = TRUE)
+
+  # Iterates through all PDF files in the folder, reads, and cleans their
+  # content
   texts <- list()
-  
-  i <- 1
+
+  # Creates the progress bar
+  cli_alert_info("Preparing to start extracting the texts")
+  cli_progress_bar("Extracting texts",
+    total = length(filenames),
+    clear = FALSE
+  )
   for (name in filenames) {
-    t_0 <- Sys.time()
+    # Iterates through each document's strings and concatenates it into one
+    # single string
     text <- ""
     for (str in pdf_text(name)) {
       text <- paste(text, str, sep = " ")
     }
-    
+
+    # Removes stop words from the text, as well as non-alphanumeric and
+    # non-punctuation characters
     text <- trimws(gsub("\\s+", " ", text))
     text <- trimws(gsub("Public Disclosure Authorized", "", text))
     text <- trimws(gsub("Document of The World Bank", "", text))
@@ -39,145 +66,181 @@ extract <- function(folder_path, absolute_path = FALSE) {
     text <- trimws(gsub("For Official Use Only", "", text))
     text <- trimws(gsub("FOR OFFICIAL, USE ONLY", "", text))
     text <- trimws(gsub("The World Bank", "", text))
-    
-    text <- trimws(gsub("[^[:alpha:] .,]", '', text))
-    
-    text <- stringr::str_squish(stringr::str_replace_all(text, stopwords_regex, ''))
-    
+    text <- trimws(gsub("[^[:alpha:] .,]", "", text))
+    text <- stringr::str_squish(stringr::str_replace_all(
+      text,
+      stopwords_regex,
+      ""
+    ))
+
+    # Concatenates all documents into one list containing all of them. Each
+    # item in the list is a whole document
     texts <- c(texts, text)
-    
-    t_f <- Sys.time()
-    
-    print(glue(paste("{round(i/length(filenames)*100, 0)} % ({round(t_f - t_0, 1)} seconds)",
-                     "Extracted document {i} of {length(filenames)}",
-                     sep = '\t-\t')))
-    
-    i <- i + 1
+
+    # Updates the progress bar for each document iteration
+    cli_progress_update()
   }
-  
+
+  # Removes all path components but the file name
   filenames <- gsub(path, "", filenames)
   filenames <- gsub(".pdf", "", filenames)
   filenames <- gsub("/", "", filenames)
-  
+
+  # Creates the tibble containing all the file names and the extracted texts
   result <- tibble(
     File = filenames,
     Text = texts
   )
-  
+
+  # Updates the progress bar to 'Done' status
+  cli_progress_done(result = "done")
+
+  # Ends the function's timer
+  t_f_general <- Sys.time()
+
+  # Prints that the process is done and the time it took to complete it
+  cli_alert_success(
+    glue(
+      "\n\nDone! The process took ",
+      "{round(difftime(t_f_general, t_0_general, units = 'mins'), 2)} ",
+      "minutes"
+    )
+  )
+
   return(result)
 }
 
 
-tidify <- function(df, token='sentences', n=2, low_lim = 0, up_lim=1,
-                   network_mode=FALSE,
-                   export_json = FALSE, json_name = NULL) {
-  
+tidify <- function(df,
+                   token = "sentences",
+                   n = 2,
+                   low_lim = 0,
+                   up_lim = 1,
+                   network_mode = FALSE,
+                   export_json = FALSE,
+                   json_name = NULL) {
+  cli_h1(glue(
+    "The tidying process has started. Please, be patient, this may ",
+    "take a while"
+  ))
+
+  # Initializes the function's timer
   t_0_general <- Sys.time()
-  
-  stopwords_regex = c('[^a-zA-Z\\d\\s:]', as.list(stop_words$word))
-  stopwords_regex = paste(stopwords_regex, collapse = '\\b|\\b')
-  stopwords_regex = paste0('\\b', stopwords_regex, '\\b')  
-  
+
+  # Creates the stop words regex for cleaning the tokens
+  stopwords_regex <- c("[^a-zA-Z\\d\\s:]", as.list(stop_words$word))
+  stopwords_regex <- paste(stopwords_regex, collapse = "\\b|\\b")
+  stopwords_regex <- paste0("\\b", stopwords_regex, "\\b")
+
+  # Iterates through the tibble with the documents and their texts, and
+  # tokenizes them. This will create several rows for each document, every row
+  # containing a token (sentence, n-gram, etc.)
   tibblist <- list()
+
+  # Creates the progress bar
+  cli_alert_info("Preparing to start tidying the texts")
+  cli_progress_bar("Tidying texts",
+    total = nrow(df),
+    clear = FALSE
+  )
   for (i in 1:nrow(df)) {
-    
-    t_0 <- Sys.time()
-    
-    document <- df %>% 
+    # Extract every individual document by slicing the input tibble
+    document <- df %>%
       slice(i)
-    
-    if (token == 'ngrams') {
+
+    # Decides what to do regarding the input tokens
+    if (token == "ngrams") {
       document <- tidytext::unnest_tokens(document,
-                                          Token,
-                                          Text,
-                                          "ngrams",
-                                          n = n,
-                                          to_lower = TRUE)
+        Texts,
+        Text,
+        "ngrams",
+        n = n,
+        to_lower = TRUE
+      )
     } else {
       document <- tidytext::unnest_tokens(document,
-                                          Token,
-                                          Text,
-                                          token,
-                                          to_lower = TRUE)
+        Texts,
+        Text,
+        token,
+        to_lower = TRUE
+      )
     }
-    
+
+    # Cleans each document's token tibble
     document <- document %>%
-      count(File, Token, sort = TRUE) %>%
-      filter(str_detect(Token, "[:alpha:]")) %>% 
-      filter(!str_detect(Token, '[.]{3}|[. ]{4}')) %>% 
-      filter(nchar(Token)>15)
-    
-    document <- document %>% 
-      slice(round(nrow(document)*low_lim, 0) : round(nrow(document)*up_lim, 0))
-    
-    document <- document %>% 
-      mutate(Token=trimws(stringr::str_replace_all(Token,
-                                                   stopwords_regex,
-                                                   '')))
-    
+      count(File, Texts, sort = TRUE, name = "Frequency") %>%
+      filter(str_detect(Texts, "[:alpha:]")) %>%
+      filter(!str_detect(Texts, "[.]{3}|[. ]{4}")) %>%
+      filter(nchar(Texts) > 15)
+
+    # Slices each document's token tibble with the range of data required by
+    # the user and set by the parameters 'low_lim' and 'up_lim'. These are
+    # retrieved by the frequency of each token
+    document <- document %>%
+      slice(round(nrow(document) * low_lim, 0):round(nrow(document) *
+        up_lim, 0))
+
+    # Cleans further the remaining tokens
+    document <- document %>%
+      mutate(Texts = trimws(stringr::str_replace_all(
+        Texts,
+        stopwords_regex,
+        ""
+      )))
+
+    # Concatenates all the document's token tibbles into a list of tibbles
+    # called 'tibblist' (one document per iteration)
     tibblist <- c(tibblist, list(document))
-    
-    t_f <- Sys.time()
-    
-    print(glue(paste("{round(i/nrow(df)*100, 0)} % ({round(t_f - t_0, 1)} seconds)",
-                     "Tidied document {i} of {nrow(df)}",
-                     sep = '\t-\t')))
+
+    # Updates the progress bar for each document iteration
+    cli_progress_update()
   }
-  
+
+  # Concatenates the list of tibble into a single tibble
   tibblist <- as_tibble(data.table::rbindlist(tibblist))
-  
+
+  # Updates the progress bar to "Done" status
+  cli_progress_done(result = "done")
+
+  # Ends the function's general timer
   t_f_general <- Sys.time()
-  
-  print(glue("\n\nDone! The process took",
-             "{round(difftime(t_f_general, t_0_general), 2)}",
-             sep=' '))
-  
-  # if (export_json == TRUE) {
-  #   cwd <- dirname(rstudioapi::getSourceEditorContext()$path)
-  #   write(jsonlite::toJSON(tibblist),
-  #         file = glue("{cwd}/Saves/Tidy/{json_name}.json")
-  #   )
-  # }
-  
-  return(tibblist)
-}   
 
-
-#' Imports the saved results (json file) from the \code{tidify()}
-#' function.
-#'
-#' @param json_path (character). A relative or absolute path to a folder.
-#' If it is an absolute path, you should set the \code{absolute_path}
-#' parameter to \code{TRUE}.
-#' @param absolute_path (logical). By default, set as \code{FALSE}.
-#' It should be set to TRUE if you want to introduce an absolute 
-#' \code{folder_path} parameter.
-#' 
-#' @return A tibble with five columns: File, Bigram, Source, Target, and
-#' Weight.
-#' - File:   Names of the files containing the text.
-#' - Bigram: Bigram found in text.
-#' - Source: First word in the Bigram. It is useful for creating networks and
-#' analysis based in the separate words of the bigram.
-#' - Target: Second word in the Bigram. It is useful for creating networks and
-#' analysis based in the separate words of the bigram.
-#' - Weight: Frequency in which the bigrams appear in each document (File).
-#' @export
-#'
-#' @examples
-#' import_json()
-import_json <- function(json_path, absolute_path = FALSE) {
-  # Checks if the given path is absolute or relative
-  if (absolute_path == FALSE) {
-    cwd <- dirname(rstudioapi::getSourceEditorContext()$path)
-    path <- paste(cwd, json_path, sep = "/")
-  }
-
-  if (absolute_path == TRUE) {
-    path <- json_path
-  }
-
-  return(
-    as_tibble(import_json()(path))
+  # Prints that the process is done and the time it took to complete it
+  cli_alert_success(
+    glue(
+      "\n\nDone! The process took ",
+      "{round(difftime(t_f_general, t_0_general, units = 'mins'), 2)} ",
+      "minutes"
+    )
   )
+
+  # Saves the results to a JSON file
+  if (export_json == TRUE) {
+    cwd <- dirname(rstudioapi::getSourceEditorContext()$path)
+
+    write(jsonlite::toJSON(tibblist),
+      file = glue("{cwd}/Saves/{json_name}.json")
+    )
+
+    cli_alert_success(glue(
+      "Data successfully exported to the path ",
+      style_underline(style_italic(
+        col_br_red("\'{cwd}/Saves/{json_name}.json\'")
+      ))
+    ))
+  }
+  return(tibblist)
+}
+
+
+from_saves <- function(json_name) {
+  cwd <- dirname(rstudioapi::getSourceEditorContext()$path)
+
+  path <- glue("{cwd}/Saves/{json_name}.json")
+
+  json_file <- as_tibble(jsonlite::fromJSON(path))
+
+  cli_alert_success("Successfully imported JSON")
+
+  return(json_file)
 }
