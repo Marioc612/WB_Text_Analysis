@@ -195,8 +195,8 @@ tidify <- function(df,
     # Concatenates the list of tibble into a single tibble
     tibblist <- as_tibble(data.table::rbindlist(tibblist))
 
-    tibblist %>%
-        mutate(Frequency=NULL)
+    tibblist <- tibblist %>%
+        mutate(Frequency = NULL)
 
     # Updates the progress bar to "Done" status
     cli::cli_progress_done(result = "done")
@@ -208,25 +208,34 @@ tidify <- function(df,
         write(jsonlite::toJSON(tibblist),
               file = glue("{cwd}/Saves/{json_name}.json"))
 
+        # Ends the function's general timer
+        t_f_general <- Sys.time()
+
+        # Prints that the process is done and the time it took to complete it
+        cli::cli_alert_success(
+            glue::glue(
+                "\n\nDone! The process took ",
+                "{round(difftime(t_f_general, t_0_general, units = 'mins'), 2)} ",
+                "minutes"
+            )
+        )
+
         cli::cli_alert_success(glue(
             "Data successfully exported to the path ",
             cli::style_underline(cli::style_italic(
                 cli::col_br_red("\'{cwd}/Saves/{json_name}.json\'")
             ))
         ))
-    }
 
-    # Ends the function's general timer
-    t_f_general <- Sys.time()
-
-    # Prints that the process is done and the time it took to complete it
-    cli::cli_alert_success(
-        glue::glue(
-            "\n\nDone! The process took ",
-            "{round(difftime(t_f_general, t_0_general, units = 'mins'), 2)} ",
-            "minutes"
+        cli_alert_info(
+            glue::glue(
+                "Remember that you can open the saved ",
+                "file by running the function ",
+                style_italic("\"from_saves(\'{json_name}\')\"")
+            )
         )
-    )
+
+    }
 
     return(tibblist)
 }
@@ -239,7 +248,7 @@ from_saves <- function(json_name) {
 
     json_file <- as_tibble(jsonlite::fromJSON(path))
 
-    cli::cli_alert_success('Successfully imported JSON')
+    cli::cli_alert_success('Successfully imported JSON file')
 
     return(json_file)
 }
