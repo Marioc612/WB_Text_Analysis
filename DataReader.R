@@ -2,14 +2,15 @@ library(cli)
 library(glue)
 library(jsonlite)
 library(pdftools)
-library(stringr)
+#library(stringr)
 library(tidyverse)
 library(tidytext)
+library(here)
 
 
 extract <- function(folder_path, absolute_path = FALSE) {
-    cli::cli_h1(
-        glue::glue(
+    cli_h1(
+        glue(
             "The extraction process has started. Please, be patient, this ",
             " may take a while."
         )
@@ -26,8 +27,7 @@ extract <- function(folder_path, absolute_path = FALSE) {
     # Sets the conditions for treating the path input as a relative or absolute
     # path
     if (absolute_path == FALSE) {
-        cwd <- dirname(rstudioapi::getSourceEditorContext()$path)
-        path <- paste(cwd, folder_path, sep = "/")
+        path <- here(folder_path)
     }
 
     if (absolute_path == TRUE) {
@@ -42,10 +42,10 @@ extract <- function(folder_path, absolute_path = FALSE) {
     texts <- list()
 
     # Creates the progress bar
-    cli::cli_alert_info("Preparing to start extracting the texts")
-    cli::cli_progress_bar('Extracting texts',
-                          total = length(filenames),
-                          clear = FALSE)
+    cli_alert_info("Preparing to start extracting the texts")
+    cli_progress_bar('Extracting texts',
+                     total = length(filenames),
+                     clear = FALSE)
     for (name in filenames) {
         # Iterates through each document's strings and concatenates it into one
         # single string
@@ -72,7 +72,7 @@ extract <- function(folder_path, absolute_path = FALSE) {
         texts <- c(texts, text)
 
         # Updates the progress bar for each document iteration
-        cli::cli_progress_update()
+        cli_progress_update()
     }
 
     # Creates the regex string for cleaning the filenames
@@ -91,14 +91,14 @@ extract <- function(folder_path, absolute_path = FALSE) {
                      Text = texts)
 
     # Updates the progress bar to 'Done' status
-    cli::cli_progress_done(result = "done")
+    cli_progress_done(result = "done")
 
     # Ends the function's timer
     t_f_general <- Sys.time()
 
     # Prints that the process is done and the time it took to complete it
-    cli::cli_alert_success(
-        glue::glue(
+    cli_alert_success(
+        glue(
             "\n\nDone! The process took ",
             "{round(difftime(t_f_general, t_0_general, units = 'mins'), 2)} ",
             "minutes"
@@ -116,8 +116,8 @@ tidify <- function(df,
                    up_lim = 1,
                    network_mode = FALSE,
                    export_json = FALSE,
-                   json_name = NULL) {
-    cli::cli_h1(glue::glue(
+                   version_name = NULL) {
+    cli_h1(glue(
         "The tidying process has started. Please, be patient, this may ",
         "take a while"
     ))
@@ -136,10 +136,10 @@ tidify <- function(df,
     tibblist <- list()
 
     # Creates the progress bar
-    cli::cli_alert_info("Preparing to start tidying the texts")
-    cli::cli_progress_bar('Tidying texts',
-                          total = nrow(df),
-                          clear = FALSE)
+    cli_alert_info("Preparing to start tidying the texts")
+    cli_progress_bar('Tidying texts',
+                     total = nrow(df),
+                     clear = FALSE)
     for (i in 1:nrow(df)) {
         # Extract every individual document by slicing the input tibble
         document <- df %>%
@@ -163,24 +163,25 @@ tidify <- function(df,
 
         # Cleans each document's token tibble
         document <- document %>%
-            count(Project, Text, sort = TRUE, name = 'Frequency') %>%
-            filter(stringr::str_detect(Text, "[:alpha:]")) %>%
-            filter(!stringr::str_detect(Text, '[.]{3}|[. ]{4}')) %>%
-            filter(nchar(Text) > 15)
+            dplyr::count(Project, Text, sort = TRUE, name = 'Frequency') %>%
+            dplyr::filter(stringr::str_detect(Text, "[:alpha:]")) %>%
+            dplyr::filter(!stringr::str_detect(Text, '[.]{3}|[. ]{4}')) %>%
+            dplyr::filter(nchar(Text) > 15)
 
         # Slices each document's token tibble with the range of data required by
         # the user and set by the parameters 'low_lim' and 'up_lim'. These are
         # retrieved by the frequency of each token
         document <- document %>%
-            slice(round(nrow(document) * low_lim, 0):round(nrow(document) *
-                                                               up_lim, 0))
+            dplyr::slice(
+                round(nrow(document) * low_lim, 0):round(nrow(document) *
+                                                             up_lim, 0))
 
         # Cleans further the remaining tokens
         document <- document %>%
-            mutate(Text = trimws(
-                stringr::str_replace_all(Text, stopwords_regex, ''))
+            dplyr::mutate(Text = trimws(
+                str_replace_all(Text, stopwords_regex, ''))
             ) %>%
-            mutate(Text = stringr::str_squish(
+            dplyr::mutate(Text = stringr::str_squish(
                 trimws(stringr::str_replace_all(Text, '[^[:alpha:] ]', '')))
             )
 
@@ -189,46 +190,45 @@ tidify <- function(df,
         tibblist <- c(tibblist, list(document))
 
         # Updates the progress bar for each document iteration
-        cli::cli_progress_update()
+        cli_progress_update()
     }
 
-    # Concatenates the list of tibble into a single tibble
+    # Concatenates the list of tibbles into a single tibble
     tibblist <- as_tibble(data.table::rbindlist(tibblist))
 
     tibblist <- tibblist %>%
-        mutate(Frequency = NULL)
+        dplyr::mutate(Frequency = NULL)
 
     # Updates the progress bar to "Done" status
-    cli::cli_progress_done(result = "done")
+    cli_progress_done(result = "done")
 
     # Saves the results to a JSON file
     if (export_json == TRUE) {
-        cwd <- dirname(rstudioapi::getSourceEditorContext()$path)
 
         write(jsonlite::toJSON(tibblist),
-              file = glue("{cwd}/Saves/{json_name}.json"))
+              file = here(glue("Saves/data/tidy_{version_name}.json")))
 
         # Ends the function's general timer
         t_f_general <- Sys.time()
 
         # Prints that the process is done and the time it took to complete it
-        cli::cli_alert_success(
-            glue::glue(
+        cli_alert_success(
+            glue(
                 "\n\nDone! The process took ",
                 "{round(difftime(t_f_general, t_0_general, units = 'mins'), 2)} ",
                 "minutes"
             )
         )
 
-        cli::cli_alert_success(glue(
+        cli_alert_success(glue(
             "Data successfully exported to the path ",
-            cli::style_underline(cli::style_italic(
-                cli::col_br_red("\'{cwd}/Saves/{json_name}.json\'")
+            style_underline(style_italic(
+                col_br_red("\'{cwd}/Saves/data/tidy_{json_name}.json\'")
             ))
         ))
 
         cli_alert_info(
-            glue::glue(
+            glue(
                 "Remember that you can open the saved ",
                 "file by running the function ",
                 style_italic("\"from_saves(\'{json_name}\')\"")
@@ -242,13 +242,11 @@ tidify <- function(df,
 
 
 from_saves <- function(json_name) {
-    cwd <- dirname(rstudioapi::getSourceEditorContext()$path)
-
-    path = glue::glue('{cwd}/Saves/{json_name}.json')
+    path = here(glue('Saves/data/tidy_{json_name}.json'))
 
     json_file <- as_tibble(jsonlite::fromJSON(path))
 
-    cli::cli_alert_success('Successfully imported JSON file')
+    cli_alert_success('Successfully imported JSON file')
 
     return(json_file)
 }
