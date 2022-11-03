@@ -16,7 +16,8 @@ generate_testData <- function(tidy_texts) {
             Target = sample(
                 SDGs$Target,
                 size = nrow(test_results),
-                replace = TRUE)
+                replace = TRUE,
+                prob = SDGs$Probability)
         )
     return(test_results)
 }
@@ -137,7 +138,8 @@ count_occurrence <- function(mapping_res,
         occurrence <- occurrence %>%
             group_by(Project, SDG) %>%
             summarise(Frequency = sum(Frequency), .groups = 'drop') %>%
-            arrange(Project, -Frequency) %>%
+            mutate(Frequency = 1) %>%
+            arrange(Project, str_sort(SDG, numeric = TRUE)) %>%
             color_by_SDG()
     }
 
@@ -334,24 +336,60 @@ plot_SDG_distribution <- function(mapping_res,
 }
 
 
-results_matrix <- function(mapping_res, save_file = FALSE, filename = NULL) {
-    matrix_results <- mapping_res %>%
-        count_occurrence('SDG') %>%
+results_matrix <- function(mapping_res,
+                           relative_freqs = FALSE,
+                           with_main_SDG = TRUE,
+                           save_file = FALSE,
+                           filename = NULL) {
+    matrix_results <- results %>%
+        count_matches(by = 'SDG',
+                      sorted = 'Frequency',
+                      collapse_projects = FALSE) %>%
         mutate(Color = NULL)
 
     matrix_results <- pivot_wider(matrix_results,
                                   names_from = 'SDG',
                                   values_from = 'Frequency')
 
-    main_goals <- get_main_SDG(mapping_res,
-                               from_binary = TRUE,
-                               collapse_SDG = FALSE)
-
     matrix_results <- matrix_results %>%
         select(str_sort(colnames(matrix_results), numeric = TRUE))
 
     matrix_results <- matrix_results %>%
-        mutate(Main_SDG = main_goals$SDG)
+        replace(is.na(.), 0)
+
+    if (relative_freqs == TRUE) {
+        projects <- as.list(matrix_results %>% select(Project))[[1]]
+
+        matrix_results <- matrix_results %>%
+            select(-Project)
+
+        for (i in 1:nrow(matrix_results)) {
+            matrix_results[i, ] <-
+                round(100 * matrix_results[i, ] / sum(matrix_results[i, ]), 0)
+        }
+
+        matrix_results <- matrix_results %>%
+            add_column(Project = projects, .before = 1, ) %>%
+            add_column(Unit = rep('%', nrow(matrix_results)), .after = 1)
+    } else if (relative_freqs == FALSE) {
+        matrix_results <- matrix_results %>%
+            add_column(Unit = rep('# matches', nrow(matrix_results)),
+                       .after = 1)
+    } else {
+        cli_alert_warning(paste0("The parameter 'relative_freqs' should be ",
+                                 "either TRUE or FALSE. By default, the ",
+                                 "any other value will return an absolute ",
+                                 "frequencies matrix"))
+    }
+
+    if (with_main_SDG == TRUE) {
+        main_goals <- get_main_SDG(mapping_res,
+                                   from_binary = FALSE,
+                                   collapse_SDG = FALSE)
+
+        matrix_results <- matrix_results %>%
+            mutate(main_SDG = main_goals$SDG)
+    }
 
     if (save_file == TRUE) {
         if (!is.null(filename)) {
@@ -419,9 +457,12 @@ generate_network <- function(mapping_res) {
     net <- net %>%
         mutate(Source = as.numeric(Source),
                Target = as.numeric(Target)) %>%
-        arrange(Source, Target) %>%
         mutate(Source = glue("SDG {Source}"),
-               Target = glue("SDG {Target}"))
+               Target = glue("SDG {Target}")) %>%
+        group_by(Source, Target) %>%
+        summarise(Weight = n(), .groups = 'drop') %>%
+        arrange(str_sort(Source, numeric = TRUE),
+                str_sort(Target, numeric = TRUE))
     return(net)
 }
 

@@ -1,8 +1,10 @@
+library(here)
+library(ggplot2)
 library(ggraph)
 library(tidygraph)
 library(igraph)
-source(here::here('DataReader.R'))
-source(here::here('ViewResults.R'))
+source(here('DataReader.R'))
+source(here('ViewResults.R'))
 # source(here::here('DataManipulation.R'))
 
 # texts <- extract('Test')
@@ -47,7 +49,7 @@ occurrence_SDG <- count_occurrence(results,
 # of all targets in a SDG.
 # -------------------------------> can feed a column plot and be exported to csv
 main_SDGs <- get_main_SDG(results,
-                          from_binary = TRUE,
+                          from_binary = FALSE,
                           collapse_SDG = TRUE)
 
 SDGs_proj <- get_SDGs_proj(results)
@@ -57,11 +59,15 @@ SDGs_proj <- get_SDGs_proj(results)
 
 occurrence_SDG %>% plot_results(title = 'Testing',
                         xlabel = 'SDG',
-                        ylabel = 'Count')
+                        ylabel = 'Number of projects')
 
 matches_SDG %>% plot_results(title='Testing 2',
                      xlabel='SDG',
-                     ylabel='Count')
+                     ylabel='Number of matches')
+
+main_SDGs %>% plot_results(title = 'Testing main',
+                           xlabel = 'SDG',
+                           ylabel = 'Number of projects')
 
 
 plot_SDG_distribution(results,
@@ -72,26 +78,45 @@ plot_SDG_distribution(results,
 
 # Results as matrix ============================================================
 
-a <- results_matrix(results, save_file = TRUE, filename = "Matrix")
+matrix_relative <- results_matrix(results,
+                                  relative_freqs = TRUE,
+                                  with_main_SDG = TRUE)
+
+matrix_absolute <- results_matrix(results,
+                                  relative_freqs = FALSE,
+                                  with_main_SDG = TRUE)
 
 # Network ======================================================================
 
 # Generate network from results --------------------
-net <- as.matrix(generate_network(results))
+net <- generate_network(results)
+net <- net %>% rename(weight = Weight)
 
-net <- graph_from_edgelist(net, directed = FALSE)
+nodes <- c(as.list(net$Source), as.list(net$Target))
+nodes <- str_sort(unique(nodes), numeric = TRUE)
 
-V(net)$Degree <- degree(net, mode='total')
+net <- graph_from_data_frame(net, directed = FALSE, vertices = nodes)
+
+V(net)$Degree <- strength(net, mode='total')
 V(net)$Color <- generate_color_palette()$Color
+E(net)$Color <- "gray"
 
+options(repr.plot.width=8, repr.plot.height=6)
 
-ggraph(net) +
-    geom_edge_link() +
-    geom_node_point(aes(size = Degree)) +
-    geom_node_text(aes(label = as.list(V(net)),
-                       colour = 'red'))
-
-
-
-
+a <- ggraph(net, layout = 'igraph', algorithm = 'nicely') +
+    geom_edge_link(aes(colour = Color,
+                       alpha = weight,
+                       width = weight)) +
+    geom_node_point(aes(size = Degree,
+                        colour = Color)) +
+    geom_node_text(aes(label = names(as.list(V(net))),
+                       size = Degree),
+                   show.legend = FALSE,
+                   colour = 'gray4',
+                   repel = TRUE) +
+    scale_colour_identity() +
+    scale_edge_colour_identity() +
+    scale_edge_width(range = c(0.1, 0.8)) +
+    scale_edge_alpha_continuous(range = c(0.05, 1)) +
+    set_graph_style(background = 'white')
 
