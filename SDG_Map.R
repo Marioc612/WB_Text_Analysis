@@ -3,10 +3,19 @@ library(ggplot2)
 library(ggraph)
 library(tidygraph)
 library(igraph)
+library(remotes)
+library(showtext)
 source(here('DataReader.R'))
 source(here('ViewResults.R'))
 # source(here::here('DataManipulation.R'))
 
+
+# ====== Setting up text fonts =================================================
+initialise_fonts()
+# ------------------------------------------------------------------------------
+
+
+# ====== Loading the saved data instead of processing it again =================
 # texts <- extract('Test')
 #
 # tidy <- tidify(texts, token='sentences', low_lim = 0, up_lim=1,
@@ -90,33 +99,5 @@ matrix_absolute <- results_matrix(results,
 
 # Generate network from results --------------------
 net <- generate_network(results)
-net <- net %>% rename(weight = Weight)
 
-nodes <- c(as.list(net$Source), as.list(net$Target))
-nodes <- str_sort(unique(nodes), numeric = TRUE)
-
-net <- graph_from_data_frame(net, directed = FALSE, vertices = nodes)
-
-V(net)$Degree <- strength(net, mode='total')
-V(net)$Color <- generate_color_palette()$Color
-E(net)$Color <- "gray"
-
-options(repr.plot.width=8, repr.plot.height=6)
-
-a <- ggraph(net, layout = 'igraph', algorithm = 'nicely') +
-    geom_edge_link(aes(colour = Color,
-                       alpha = weight,
-                       width = weight)) +
-    geom_node_point(aes(size = Degree,
-                        colour = Color)) +
-    geom_node_text(aes(label = names(as.list(V(net))),
-                       size = Degree),
-                   show.legend = FALSE,
-                   colour = 'gray4',
-                   repel = TRUE) +
-    scale_colour_identity() +
-    scale_edge_colour_identity() +
-    scale_edge_width(range = c(0.1, 0.8)) +
-    scale_edge_alpha_continuous(range = c(0.05, 1)) +
-    set_graph_style(background = 'white')
-
+plot_network(results, savefig = TRUE, figname = 'Network test')

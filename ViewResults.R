@@ -1,8 +1,32 @@
 library(tidyverse)
+library(ggplot2)
+library(ggraph)
+library(tidygraph)
+library(igraph)
+library(showtext)
+library(sysfonts)
 
 
-generate_color_palette <- function() {
+initialise_fonts <- function() {
+    sysfonts::font_add_google("Roboto Condensed")
+    showtext_opts(dpi = 300)
+    showtext_auto()
+}
+
+
+generate_color_palette <- function(all_SDGs = TRUE, SDG_vector = NULL) {
     palette <- as_tibble(read.csv(here('Settings/SDG_colors.csv')))
+    if (all_SDGs == FALSE) {
+        if (!is.null(SDG_vector)) {
+            palette <- as_tibble(read.csv(here('Settings/SDG_colors.csv')))
+            palette <- palette %>% column_to_rownames("SDG")
+            palette <- palette[SDG_vector, ]
+        } else {
+            cli_abort(paste0("The argument 'SDG_vector' must be a vector of ",
+                             "SDGs -- e.g., c('SDG 1', 'SDG 3', 'SDG n') -- ",
+                             "if 'all_SDGs' is set to FALSE"))
+        }
+    }
     return(palette)
 }
 
@@ -195,7 +219,7 @@ plot_results <- function(data,
                  title,
                  xlabel,
                  ylabel,
-                 save_fig = FALSE,
+                 savefig = FALSE,
                  figname = NULL) {
     fig <- ggplot(data,
                   aes(fct_rev(fct_reorder(SDG, Frequency)), Frequency)) +
@@ -223,16 +247,20 @@ plot_results <- function(data,
                                       margin=margin(0,0,25,0))
         )
 
-    if (save_fig == TRUE) {
-        ggsave(
-            here(glue('Saves/img/{figname}.png')),
-            plot = fig,
-            device = 'png',
-            scale = 1,
-            width = 19,
-            units = 'cm',
-            dpi = 500
-        )
+    if (savefig == TRUE) {
+        if (isSingleString(figname)) {
+            ggsave(
+                here(glue('Saves/img/{figname}.png')),
+                plot = fig,
+                device = 'png',
+                scale = 1,
+                width = 19,
+                units = 'cm',
+                dpi = 500
+            )
+        } else {
+            cli_abort("The argument 'figname' must be a single string")
+        }
     }
     return(fig)
 }
@@ -322,15 +350,18 @@ plot_SDG_distribution <- function(mapping_res,
     }
 
     if (save_fig == TRUE) {
-        ggsave(
-            here(glue('Saves/img/{figname}.png')),
-            plot = fig,
-            device = 'png',
-            scale = 1,
-            width = 19,
-            units = 'cm',
-            dpi = 500
-        )
+        if (isSingleString(figname)) {
+            ggsave(
+                here(glue('Saves/img/{figname}.png')),
+                plot = fig,
+                device = 'png',
+                scale = 1,
+                units = 'cm',
+                dpi = 300
+            )
+        } else {
+            cli_abort("The argument 'figname' must be a single string")
+        }
     }
     return(histo)
 }
@@ -426,8 +457,8 @@ generate_network <- function(mapping_res) {
             targets <- c(targets, a[[i]][2])
         }
 
-        net <- tibble(Source = sources,
-                      Target = targets)
+        net <- tibble(source = sources,
+                      target = targets)
 
         tibblist <- c(tibblist, list(net))
     }
@@ -436,9 +467,8 @@ generate_network <- function(mapping_res) {
     tibblist <- as_tibble(data.table::rbindlist(tibblist))
 
     net <- tibblist %>%
-        mutate(Source = as.numeric(str_remove_all(Source, "[^0-9]")),
-               Target = as.numeric(str_remove_all(Target, "[^0-9]")))
-
+        mutate(source = as.numeric(str_remove_all(source, "[^0-9]")),
+               target = as.numeric(str_remove_all(target, "[^0-9]")))
 
     min <- list()
     max <- list()
@@ -452,18 +482,92 @@ generate_network <- function(mapping_res) {
         } else {cli_abort("Something is wrong")}
     }
 
-    net <- tibble(Source = min, Target = max)
+    net <- tibble(source = min, target = max)
 
     net <- net %>%
-        mutate(Source = as.numeric(Source),
-               Target = as.numeric(Target)) %>%
-        mutate(Source = glue("SDG {Source}"),
-               Target = glue("SDG {Target}")) %>%
-        group_by(Source, Target) %>%
-        summarise(Weight = n(), .groups = 'drop') %>%
-        arrange(str_sort(Source, numeric = TRUE),
-                str_sort(Target, numeric = TRUE))
+        mutate(source = as.numeric(source),
+               target = as.numeric(target)) %>%
+        arrange(source, target) %>%
+        group_by(source, target) %>%
+        summarise(weight = n(), .groups = 'drop') %>%
+        mutate(source = glue("SDG {source}"),
+               target = glue("SDG {target}"))
+
+    nodes <- c(as.list(net$source), as.list(net$target))
+    nodes <- str_sort(unique(nodes), numeric = TRUE)
+
+    net <- graph_from_data_frame(net, directed = FALSE, vertices = nodes)
+
+    V(net)$degree <- strength(net, mode='total')
+    V(net)$color <- generate_color_palette(all_SDGs = FALSE, SDG_vector = V(net))
+    E(net)$color <- "gray"
+
     return(net)
+}
+
+
+plot_network <- function(mapping_res,
+                         concentric = FALSE,
+                         savefig = FALSE,
+                         figname = NULL) {
+    net <- generate_network(mapping_res)
+
+    if (concentric == TRUE) {
+        ggraph(net, 'focus', focus = node_is_center()) +
+            ggforce::geom_circle(aes(x0 = 0, y0 = 0, r = r),
+                                 data.frame(r = 1:3),
+                                 colour = 'grey')
+    } else {
+        net_plot <- ggraph(net, layout = 'igraph', algorithm = 'nicely')
+    }
+
+    net_plot <- net_plot +
+        # Edges' settings
+        geom_edge_link(aes(
+            colour = color,
+            alpha = weight,
+            width = weight
+        )) +
+        scale_edge_colour_identity() +
+        scale_edge_width(range = c(0.1, 0.8), name = 'Weight') +
+        scale_edge_alpha_continuous(range = c(0.05, 1), name = 'Weight') +
+        # Nodes' settings
+        geom_node_point(aes(
+            size = degree,
+            colour = color),
+        ) +
+        geom_node_text(aes(
+            label = names(as.list(V(net))),
+            size = degree),
+            show.legend = FALSE,
+            colour = 'gray4',
+            repel = TRUE,
+            family = 'Roboto Condensed'
+        ) +
+        scale_colour_identity() +
+        scale_size_continuous(name = 'Degree', range = c(1, 8)) +
+        scale_label_size_continuous(range = c(1, 1.2)) +
+        # General settings and aesthetics configurations
+        theme_graph(
+            background = 'white',
+            title_margin = 0,
+            subtitle_margin = 20,
+            title_size = 20,
+            base_size = 10,
+            base_family = 'Roboto Condensed',
+            plot_margin = margin(15, 15, 15, 15)
+        )
+
+    if (savefig == TRUE) {
+        if (isSingleString(figname)) {
+            ggsave(here('Saves/img/{figname}.png'),
+                   plot = net_plot,
+                   dpi = 300)
+        } else {
+            cli_abort("The argument 'figname' must be a single string")
+        }
+    }
+    return(net_plot)
 }
 
 
