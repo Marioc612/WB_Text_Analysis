@@ -7,10 +7,10 @@ library(showtext)
 library(sysfonts)
 
 
-initialise_fonts <- function() {
-    sysfonts::font_add_google("Roboto Condensed")
-    showtext_opts(dpi = 300)
-    showtext_auto()
+initialise_fonts <- function(font = "Roboto Condensed", dpi = 96) {
+    sysfonts::font_add_google(font)
+    showtext_opts(dpi)
+    showtext_auto(enable = TRUE)
 }
 
 
@@ -138,12 +138,21 @@ count_matches <- function(mapping_res,
         }
 
     } else if (collapse_projects == TRUE & by == 'total_matches') {
-        cli_abort(paste0("It is not possible to collapse the results by Project ",
-                         "with argument 'by = total_matches', only when by = 'SDG' ",
-                         "or 'by = Target'"))
+        cli_abort(paste0("It is not possible to collapse the results by ",
+                         "Project when argument 'by' == 'total_matches', ",
+                         "only when 'by' == 'SDG' or 'Target'"))
     }
 
-    return(as_tibble(matches))
+    matches <- as_tibble(matches)
+
+    return(matches)
+}
+
+
+export_summary <- function(summary, filename) {
+    write.csv(matches,
+              glue("Saves/data", "/{filename}.csv"),
+              row.names = FALSE)
 }
 
 
@@ -216,53 +225,90 @@ get_main_SDG <- function(mapping_res,
 
 
 plot_results <- function(data,
-                 title,
-                 xlabel,
-                 ylabel,
-                 savefig = FALSE,
-                 figname = NULL) {
+                         title = NULL,
+                         subtitle = NULL,
+                         xlabel,
+                         ylabel,
+                         font = "Roboto Condensed",
+                         fontsize_barlabs = 14,
+                         fontsize_title = 20,
+                         fontsize_subt = 16,
+                         fontsize_axis = 15,
+                         savefig = FALSE,
+                         figname = NULL,
+                         dpi = 96,
+                         scale = 1,
+                         transparent_bg = FALSE) {
     fig <- ggplot(data,
                   aes(fct_rev(fct_reorder(SDG, Frequency)), Frequency)) +
         geom_col(aes(fill = Color)) +
         geom_text(
-            aes(SDG, Frequency, label = Frequency),
+            aes(SDG, Frequency, label = Frequency, size = fontsize_barlabs),
             angle = 90,
-            size = 4,
             vjust = 0.35,
             hjust = 1.3,
-            colour = 'white'
+            colour = 'white',
         ) +
         scale_fill_identity() +
-        ggtitle(title) +
+        ggtitle(title, subtitle) +
         xlab(xlabel) +
         ylab(ylabel) +
         theme_minimal() +
         theme(
             aspect.ratio = 0.4,
-            axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+            axis.title.x = element_text(size = fontsize_axis,
+                                        margin = margin(15, 0, 0, 0)),
+            axis.title.y = element_text(size = fontsize_axis,
+                                        margin = margin(0, 15, 0, 0)),
+            axis.text.x = element_text(angle = 90,
+                                       vjust = 0.5,
+                                       hjust = 0,
+                                       size = fontsize_axis),
+            axis.text.y = element_text(size = fontsize_axis),
             legend.position = 'none',
-            plot.title = element_text(size = 13,
+            plot.title = element_text(size = fontsize_title,
                                       face = 'bold',
-                                      hjust = 0.5,
-                                      margin=margin(0,0,25,0))
+                                      hjust = 0,
+                                      margin = margin(0, 0, 0, 0),
+                                      family = 'Roboto Condensed'),
+            plot.subtitle = element_text(size = fontsize_subt,
+                                         hjust = 0,
+                                         margin = margin(0, 0, 25, 0))
         )
+    return(fig)
+}
 
-    if (savefig == TRUE) {
-        if (isSingleString(figname)) {
+
+export_plot <- function(plot, figname) {
+    folder = 'Saves/img'
+
+    if (isSingleString(figname)) {
+        if (transparent_bg == FALSE){
             ggsave(
-                here(glue('Saves/img/{figname}.png')),
-                plot = fig,
+                here(glue('{folder}/{figname}.png')),
+                plot = plot,
                 device = 'png',
-                scale = 1,
+                scale = scale,
                 width = 19,
                 units = 'cm',
-                dpi = 500
-            )
+                dpi = dpi,
+                bg = 'white')
+        } else if (transparent_bg == TRUE) {
+            ggsave(
+                here(glue('{folder}/{figname}.png')),
+                plot = plot,
+                device = 'png',
+                scale = scale,
+                width = 19,
+                units = 'cm',
+                dpi = dpi)
         } else {
-            cli_abort("The argument 'figname' must be a single string")
+            cli_abort(paste0("The argument 'transparent_bg' must be ",
+                             "either TRUE or FALSE"))
         }
+    } else {
+        cli_abort("The argument 'figname' must be a single string")
     }
-    return(fig)
 }
 
 
@@ -281,13 +327,20 @@ get_SDGs_proj <- function(mapping_res) {
 
 plot_SDG_distribution <- function(mapping_res,
                                   binwidth = 2,
-                                  title = paste0("Distribution of the number "
-                                                 , "of Goals by project"),
+                                  title = NULL,
+                                  subtitle = NULL,
                                   xlabel = "Number of Goals",
                                   ylabel = "Number of projects",
+                                  font = "Roboto Condensed",
+                                  fontsize_title = 20,
+                                  fontsize_subt = 16,
+                                  fontsize_axis = 15,
                                   kde = FALSE,
-                                  save_fig = FALSE,
+                                  savefig = FALSE,
                                   figname = NULL,
+                                  dpi = 96,
+                                  scale = 1,
+                                  transparent_bg = FALSE,
                                   test = FALSE) {
     if (test == FALSE) {
         SDG_dist <- get_SDGs_proj(mapping_res)
@@ -309,8 +362,10 @@ plot_SDG_distribution <- function(mapping_res,
 
     mean_goals <- mean(SDG_dist$Frequency)
 
-    histo <- histo + scale_x_continuous(breaks = xticks,
-                                        labels = round(xticks, 1)) +
+    histo <- histo +
+        scale_x_continuous(breaks = xticks,
+                           labels = round(xticks, 1)
+        ) +
         theme(legend.position = 'none') +
         ggtitle(title) +
         xlab(xlabel) +
@@ -318,11 +373,20 @@ plot_SDG_distribution <- function(mapping_res,
         theme_minimal() +
         theme(
             aspect.ratio = 0.4,
-            axis.text.x = element_text(angle = 0, vjust = 0.5, hjust = 1),
-            plot.title = element_text(size = 13,
+            axis.title = element_text(size = fontsize_axis),
+            axis.text.x = element_text(angle = 0,
+                                       vjust = 0.5,
+                                       hjust = 1,
+                                       size = fontsize_axis),
+            axis.text.y = element_text(size = fontsize_axis),
+            plot.title = element_text(size = fontsize_title,
                                       face = 'bold',
-                                      hjust = 0.5,
-                                      margin=margin(0,0,25,0)),
+                                      hjust = 0,
+                                      margin = margin(0, 0, 0, 0),
+                                      family = 'Roboto Condensed'),
+            plot.subtitle = element_text(size = fontsize_subt,
+                                         hjust = 0,
+                                         margin = margin(0, 0, 25, 0)),
             legend.position = 'none'
         ) +
         geom_vline(xintercept = mean_goals,
@@ -335,9 +399,11 @@ plot_SDG_distribution <- function(mapping_res,
                       hjust = 0,
                       vjust = 0,
                       colour = 'red',
-                      alpha = 1
-                      )
-        )
+                      alpha = 1,
+                      size = fontsize_axis
+                      ),
+        ) +
+        ggtitle(title, subtitle)
 
     if (kde == TRUE) {
         histo <- histo +
@@ -348,30 +414,48 @@ plot_SDG_distribution <- function(mapping_res,
                          linetype = 1
                          )
     }
+    return(histo)
+}
 
-    if (save_fig == TRUE) {
-        if (isSingleString(figname)) {
+
+export_histogram <- function(histogram,
+                             figname = "SDG_distribution_proj",
+                             transparent_bg = FALSE) {
+    folder = 'Saves/img'
+
+    if (isSingleString(figname)) {
+        if (transparent_bg == FALSE) {
             ggsave(
-                here(glue('Saves/img/{figname}.png')),
-                plot = fig,
+                here(glue('{folder}/{figname}.png')),
+                plot = histogram,
                 device = 'png',
-                scale = 1,
+                scale = scale,
                 units = 'cm',
-                dpi = 300
+                dpi = dpi,
+                bg = 'white'
+            )
+        } else if (transparent_bg == TRUE) {
+            ggsave(
+                here(glue('{folder}/{figname}.png')),
+                plot = histogram,
+                device = 'png',
+                scale = scale,
+                units = 'cm',
+                dpi = dpi
             )
         } else {
-            cli_abort("The argument 'figname' must be a single string")
+            cli_abort(paste0("The argument 'transparent_bg' must be ",
+                             "either TRUE or FALSE"))
         }
+    } else {
+        cli_abort("The argument 'figname' must be a single string")
     }
-    return(histo)
 }
 
 
 results_matrix <- function(mapping_res,
                            relative_freqs = FALSE,
-                           with_main_SDG = TRUE,
-                           save_file = FALSE,
-                           filename = NULL) {
+                           with_main_SDG = TRUE) {
     matrix_results <- results %>%
         count_matches(by = 'SDG',
                       sorted = 'Frequency',
@@ -421,17 +505,6 @@ results_matrix <- function(mapping_res,
         matrix_results <- matrix_results %>%
             mutate(main_SDG = main_goals$SDG)
     }
-
-    if (save_file == TRUE) {
-        if (!is.null(filename)) {
-            write.csv(matrix_results,
-                      glue("Saves/data", "/{filename}.csv"),
-                      row.names = FALSE)
-        } else {
-            cli_abort("Argument 'filename' must be not NULL")
-        }
-    }
-
     return(matrix_results)
 }
 
@@ -509,7 +582,15 @@ generate_network <- function(mapping_res) {
 plot_network <- function(mapping_res,
                          concentric = FALSE,
                          savefig = FALSE,
-                         figname = NULL) {
+                         figname = NULL,
+                         title = "Interactions between the SDGs",
+                         subtitle = "In the World Bank's portfolio",
+                         font = "Roboto Condensed",
+                         fontsize_base = 15,
+                         fontsize_title = 20,
+                         fontsize_subt = 16,
+                         dpi = 96,
+                         scale = 1) {
     net <- generate_network(mapping_res)
 
     if (concentric == TRUE) {
@@ -542,27 +623,33 @@ plot_network <- function(mapping_res,
             show.legend = FALSE,
             colour = 'gray4',
             repel = TRUE,
-            family = 'Roboto Condensed'
+            family = font
         ) +
         scale_colour_identity() +
         scale_size_continuous(name = 'Degree', range = c(1, 8)) +
-        scale_label_size_continuous(range = c(1, 1.2)) +
+        scale_label_size_continuous(range = c(0.8, 1.4)) +
         # General settings and aesthetics configurations
         theme_graph(
             background = 'white',
             title_margin = 0,
             subtitle_margin = 20,
-            title_size = 20,
-            base_size = 10,
-            base_family = 'Roboto Condensed',
-            plot_margin = margin(15, 15, 15, 15)
-        )
+            title_size = fontsize_title,
+            subtitle_size = fontsize_subt,
+            base_size = fontsize_base,
+            base_family = font,
+            plot_margin = margin(15, 15, 15, 15),
+        ) +
+        # Title
+        ggtitle(title,
+                subtitle)
 
     if (savefig == TRUE) {
         if (isSingleString(figname)) {
-            ggsave(here('Saves/img/{figname}.png'),
+            ggsave(here(glue('Saves/img/{figname}.png')),
                    plot = net_plot,
-                   dpi = 300)
+                   dpi = dpi,
+                   units = 'cm',
+                   scale = scale)
         } else {
             cli_abort("The argument 'figname' must be a single string")
         }
