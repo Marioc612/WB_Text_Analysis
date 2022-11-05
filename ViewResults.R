@@ -149,13 +149,6 @@ count_matches <- function(mapping_res,
 }
 
 
-export_summary <- function(summary, filename) {
-    write.csv(matches,
-              glue("Saves/data", "/{filename}.csv"),
-              row.names = FALSE)
-}
-
-
 count_occurrence <- function(mapping_res,
                              by = 'Target',
                              collapse_projects = FALSE) {
@@ -208,107 +201,19 @@ get_main_SDG <- function(mapping_res,
             color_by_SDG()
     } else {cli_abort("Argument 'from_binary' must be either TRUE or FALSE")}
 
-    main_SDGs <- mapping_res %>%
+    main <- mapping_res %>%
         group_by(Project) %>%
         top_n(1, Frequency) %>%
         mutate(Frequency = 1)
 
     if (collapse_SDG == TRUE) {
-        main_SDGs <- main_SDGs %>%
+        main <- main %>%
             group_by(SDG) %>%
             summarise(Frequency = sum(Frequency), .groups = 'drop') %>%
             color_by_SDG()
     }
 
-    return(main_SDGs)
-}
-
-
-plot_results <- function(data,
-                         title = NULL,
-                         subtitle = NULL,
-                         xlabel,
-                         ylabel,
-                         font = "Roboto Condensed",
-                         fontsize_barlabs = 14,
-                         fontsize_title = 20,
-                         fontsize_subt = 16,
-                         fontsize_axis = 15,
-                         savefig = FALSE,
-                         figname = NULL,
-                         dpi = 96,
-                         scale = 1,
-                         transparent_bg = FALSE) {
-    fig <- ggplot(data,
-                  aes(fct_rev(fct_reorder(SDG, Frequency)), Frequency)) +
-        geom_col(aes(fill = Color)) +
-        geom_text(
-            aes(SDG, Frequency, label = Frequency, size = fontsize_barlabs),
-            angle = 90,
-            vjust = 0.35,
-            hjust = 1.3,
-            colour = 'white',
-        ) +
-        scale_fill_identity() +
-        ggtitle(title, subtitle) +
-        xlab(xlabel) +
-        ylab(ylabel) +
-        theme_minimal() +
-        theme(
-            aspect.ratio = 0.4,
-            axis.title.x = element_text(size = fontsize_axis,
-                                        margin = margin(15, 0, 0, 0)),
-            axis.title.y = element_text(size = fontsize_axis,
-                                        margin = margin(0, 15, 0, 0)),
-            axis.text.x = element_text(angle = 90,
-                                       vjust = 0.5,
-                                       hjust = 0,
-                                       size = fontsize_axis),
-            axis.text.y = element_text(size = fontsize_axis),
-            legend.position = 'none',
-            plot.title = element_text(size = fontsize_title,
-                                      face = 'bold',
-                                      hjust = 0,
-                                      margin = margin(0, 0, 0, 0),
-                                      family = 'Roboto Condensed'),
-            plot.subtitle = element_text(size = fontsize_subt,
-                                         hjust = 0,
-                                         margin = margin(0, 0, 25, 0))
-        )
-    return(fig)
-}
-
-
-export_plot <- function(plot, figname) {
-    folder = 'Saves/img'
-
-    if (isSingleString(figname)) {
-        if (transparent_bg == FALSE){
-            ggsave(
-                here(glue('{folder}/{figname}.png')),
-                plot = plot,
-                device = 'png',
-                scale = scale,
-                width = 19,
-                units = 'cm',
-                dpi = dpi,
-                bg = 'white')
-        } else if (transparent_bg == TRUE) {
-            ggsave(
-                here(glue('{folder}/{figname}.png')),
-                plot = plot,
-                device = 'png',
-                scale = scale,
-                width = 19,
-                units = 'cm',
-                dpi = dpi)
-        } else {
-            cli_abort(paste0("The argument 'transparent_bg' must be ",
-                             "either TRUE or FALSE"))
-        }
-    } else {
-        cli_abort("The argument 'figname' must be a single string")
-    }
+    return(main)
 }
 
 
@@ -325,149 +230,21 @@ get_SDGs_proj <- function(mapping_res) {
 }
 
 
-plot_SDG_distribution <- function(mapping_res,
-                                  binwidth = 2,
-                                  title = NULL,
-                                  subtitle = NULL,
-                                  xlabel = "Number of Goals",
-                                  ylabel = "Number of projects",
-                                  font = "Roboto Condensed",
-                                  fontsize_title = 20,
-                                  fontsize_subt = 16,
-                                  fontsize_axis = 15,
-                                  kde = FALSE,
-                                  savefig = FALSE,
-                                  figname = NULL,
-                                  dpi = 96,
-                                  scale = 1,
-                                  transparent_bg = FALSE,
-                                  test = FALSE) {
-    if (test == FALSE) {
-        SDG_dist <- get_SDGs_proj(mapping_res)
-    } else if (test == TRUE){
-        SDG_dist <- tibble(Project = as.character(1:150),
-                           Frequency = base::round(rnorm(150, 8, 2), 0))
-    } else {
-        cli_abort("Argument 'test' must be either TRUE or FALSE")
-    }
-
-    histo <- ggplot(SDG_dist, aes(Frequency)) +
-        geom_histogram(binwidth = binwidth, boundary = 0)
-
-    xticks <- as.list(round(ggplot_build(histo)$data[[1]][4], 4))[[1]]
-    xticks <- c(xticks, tail(xticks, n = 1) + (xticks[2] - xticks[1]))
-
-    max_val <- as.list(round(ggplot_build(histo)$data[[1]][1], 1))[[1]]
-    max_val <- max(max_val)
-
-    mean_goals <- mean(SDG_dist$Frequency)
-
-    histo <- histo +
-        scale_x_continuous(breaks = xticks,
-                           labels = round(xticks, 1)
-        ) +
-        theme(legend.position = 'none') +
-        ggtitle(title) +
-        xlab(xlabel) +
-        ylab(ylabel) +
-        theme_minimal() +
-        theme(
-            aspect.ratio = 0.4,
-            axis.title = element_text(size = fontsize_axis),
-            axis.text.x = element_text(angle = 0,
-                                       vjust = 0.5,
-                                       hjust = 1,
-                                       size = fontsize_axis),
-            axis.text.y = element_text(size = fontsize_axis),
-            plot.title = element_text(size = fontsize_title,
-                                      face = 'bold',
-                                      hjust = 0,
-                                      margin = margin(0, 0, 0, 0),
-                                      family = 'Roboto Condensed'),
-            plot.subtitle = element_text(size = fontsize_subt,
-                                         hjust = 0,
-                                         margin = margin(0, 0, 25, 0)),
-            legend.position = 'none'
-        ) +
-        geom_vline(xintercept = mean_goals,
-                   linetype = 'dashed',
-                   color = 'red',
-                   lwd = 1) +
-        geom_text(aes(x = mean_goals + 0.1,
-                      y = max_val*1.03,
-                      label = glue::glue("Mean = {round(mean_goals, 1)}"),
-                      hjust = 0,
-                      vjust = 0,
-                      colour = 'red',
-                      alpha = 1,
-                      size = fontsize_axis
-                      ),
-        ) +
-        ggtitle(title, subtitle)
-
-    if (kde == TRUE) {
-        histo <- histo +
-            geom_density(aes(y = after_stat(count * 2),
-                             colour = 'darkturquoise'),
-                         kernel = "gaussian",
-                         lwd = 1,
-                         linetype = 1
-                         )
-    }
-    return(histo)
-}
-
-
-export_histogram <- function(histogram,
-                             figname = "SDG_distribution_proj",
-                             transparent_bg = FALSE) {
-    folder = 'Saves/img'
-
-    if (isSingleString(figname)) {
-        if (transparent_bg == FALSE) {
-            ggsave(
-                here(glue('{folder}/{figname}.png')),
-                plot = histogram,
-                device = 'png',
-                scale = scale,
-                units = 'cm',
-                dpi = dpi,
-                bg = 'white'
-            )
-        } else if (transparent_bg == TRUE) {
-            ggsave(
-                here(glue('{folder}/{figname}.png')),
-                plot = histogram,
-                device = 'png',
-                scale = scale,
-                units = 'cm',
-                dpi = dpi
-            )
-        } else {
-            cli_abort(paste0("The argument 'transparent_bg' must be ",
-                             "either TRUE or FALSE"))
-        }
-    } else {
-        cli_abort("The argument 'figname' must be a single string")
-    }
-}
-
-
 results_matrix <- function(mapping_res,
                            relative_freqs = FALSE,
                            with_main_SDG = TRUE) {
-    matrix_results <- results %>%
+    matrix_results <- mapping_res %>%
         count_matches(by = 'SDG',
                       sorted = 'Frequency',
                       collapse_projects = FALSE) %>%
-        mutate(Color = NULL)
+        dplyr::mutate(Color = NULL)
 
     matrix_results <- pivot_wider(matrix_results,
                                   names_from = 'SDG',
                                   values_from = 'Frequency')
 
     matrix_results <- matrix_results %>%
-        select(str_sort(colnames(matrix_results), numeric = TRUE))
+        dplyr::select(str_sort(colnames(matrix_results), numeric = TRUE))
 
     matrix_results <- matrix_results %>%
         replace(is.na(.), 0)
@@ -503,7 +280,7 @@ results_matrix <- function(mapping_res,
                                    collapse_SDG = FALSE)
 
         matrix_results <- matrix_results %>%
-            mutate(main_SDG = main_goals$SDG)
+            dplyr::mutate(main_SDG = main_goals$SDG)
     }
     return(matrix_results)
 }
@@ -579,6 +356,63 @@ generate_network <- function(mapping_res) {
 }
 
 
+# ===== Plotting functions =====================================================
+
+plot_results <- function(data,
+                         title = NULL,
+                         subtitle = NULL,
+                         xlabel,
+                         ylabel,
+                         font = "Roboto Condensed",
+                         fontsize_barlabs = 14,
+                         fontsize_title = 20,
+                         fontsize_subt = 16,
+                         fontsize_axis = 15,
+                         savefig = FALSE,
+                         figname = NULL,
+                         dpi = 96,
+                         scale = 1,
+                         transparent_bg = FALSE) {
+    fig <- ggplot(data,
+                  aes(fct_rev(fct_reorder(SDG, Frequency)), Frequency)) +
+        geom_col(aes(fill = Color)) +
+        geom_text(
+            aes(SDG, Frequency, label = Frequency, size = fontsize_barlabs),
+            angle = 90,
+            vjust = 0.35,
+            hjust = 1.3,
+            colour = 'white',
+        ) +
+        scale_fill_identity() +
+        ggtitle(title, subtitle) +
+        xlab(xlabel) +
+        ylab(ylabel) +
+        theme_minimal() +
+        theme(
+            aspect.ratio = 0.4,
+            axis.title.x = element_text(size = fontsize_axis,
+                                        margin = margin(15, 0, 0, 0)),
+            axis.title.y = element_text(size = fontsize_axis,
+                                        margin = margin(0, 15, 0, 0)),
+            axis.text.x = element_text(angle = 90,
+                                       vjust = 0.5,
+                                       hjust = 0,
+                                       size = fontsize_axis),
+            axis.text.y = element_text(size = fontsize_axis),
+            legend.position = 'none',
+            plot.title = element_text(size = fontsize_title,
+                                      face = 'bold',
+                                      hjust = 0,
+                                      margin = margin(0, 0, 0, 0),
+                                      family = 'Roboto Condensed'),
+            plot.subtitle = element_text(size = fontsize_subt,
+                                         hjust = 0,
+                                         margin = margin(0, 0, 25, 0))
+        )
+    return(fig)
+}
+
+
 plot_network <- function(mapping_res,
                          concentric = FALSE,
                          savefig = FALSE,
@@ -591,6 +425,8 @@ plot_network <- function(mapping_res,
                          fontsize_subt = 16,
                          dpi = 96,
                          scale = 1) {
+    folder <- outputs_folder('img')
+
     net <- generate_network(mapping_res)
 
     if (concentric == TRUE) {
@@ -599,10 +435,10 @@ plot_network <- function(mapping_res,
                                  data.frame(r = 1:3),
                                  colour = 'grey')
     } else {
-        net_plot <- ggraph(net, layout = 'igraph', algorithm = 'nicely')
+        g <- ggraph(net, layout = 'igraph', algorithm = 'nicely')
     }
 
-    net_plot <- net_plot +
+    g <- g +
         # Edges' settings
         geom_edge_link(aes(
             colour = color,
@@ -645,17 +481,494 @@ plot_network <- function(mapping_res,
 
     if (savefig == TRUE) {
         if (isSingleString(figname)) {
-            ggsave(here(glue('Saves/img/{figname}.png')),
-                   plot = net_plot,
+            ggsave(here(glue('{folder}/{figname}.png')),
+                   plot = g,
                    dpi = dpi,
-                   units = 'cm',
                    scale = scale)
+
+            cli_alert_success(glue(
+                "Graph successfully exported to the path ",
+                style_underline(style_italic(
+                    col_br_red("\'{folder}/{figname}.png\'")))
+            ))
+        }
+    }
+    return(g)
+}
+
+
+plot_SDG_distribution <- function(mapping_res,
+                                  binwidth = 2,
+                                  title = NULL,
+                                  subtitle = NULL,
+                                  xlabel = "Number of Goals",
+                                  ylabel = "Number of projects",
+                                  font = "Roboto Condensed",
+                                  fontsize_title = 20,
+                                  fontsize_subt = 16,
+                                  fontsize_axis = 15,
+                                  kde = FALSE,
+                                  savefig = FALSE,
+                                  figname = NULL,
+                                  dpi = 96,
+                                  scale = 1,
+                                  transparent_bg = FALSE,
+                                  test = FALSE) {
+    folder <- outputs_folder('img')
+
+    if (test == FALSE) {
+        SDG_dist <- get_SDGs_proj(mapping_res)
+    } else if (test == TRUE){
+        SDG_dist <- tibble(Project = as.character(1:150),
+                           Frequency = base::round(rnorm(150, 8, 2), 0))
+    } else {
+        cli_abort("Argument 'test' must be either TRUE or FALSE")
+    }
+
+    histo <- ggplot(SDG_dist, aes(Frequency)) +
+        geom_histogram(binwidth = binwidth, boundary = 0)
+
+    xticks <- as.list(round(ggplot_build(histo)$data[[1]][4], 4))[[1]]
+    xticks <- c(xticks, tail(xticks, n = 1) + (xticks[2] - xticks[1]))
+
+    max_val <- as.list(round(ggplot_build(histo)$data[[1]][1], 1))[[1]]
+    max_val <- max(max_val)
+
+    mean_goals <- mean(SDG_dist$Frequency)
+
+    histo <- histo +
+        scale_x_continuous(breaks = xticks,
+                           labels = round(xticks, 1)
+        ) +
+        theme(legend.position = 'none') +
+        ggtitle(title) +
+        xlab(xlabel) +
+        ylab(ylabel) +
+        theme_minimal() +
+        theme(
+            aspect.ratio = 0.4,
+            axis.title = element_text(size = fontsize_axis),
+            axis.text.x = element_text(angle = 0,
+                                       vjust = 0.5,
+                                       hjust = 1,
+                                       size = fontsize_axis),
+            axis.text.y = element_text(size = fontsize_axis),
+            plot.title = element_text(size = fontsize_title,
+                                      face = 'bold',
+                                      hjust = 0,
+                                      margin = margin(0, 0, 0, 0),
+                                      family = font),
+            plot.subtitle = element_text(size = fontsize_subt,
+                                         hjust = 0,
+                                         margin = margin(0, 0, 25, 0)),
+            legend.position = 'none'
+        ) +
+        geom_vline(xintercept = mean_goals,
+                   linetype = 'dashed',
+                   color = 'red',
+                   lwd = 1) +
+        geom_text(aes(x = mean_goals + 0.1,
+                      y = max_val*1.03,
+                      label = glue::glue("Mean = {round(mean_goals, 1)}"),
+                      hjust = 0,
+                      vjust = 0,
+                      colour = 'red',
+                      alpha = 1,
+                      size = fontsize_axis
+        ),
+        ) +
+        ggtitle(title, subtitle)
+
+    if (kde == TRUE) {
+        histo <- histo +
+            geom_density(aes(y = after_stat(count * 2),
+                             colour = 'darkturquoise'),
+                         kernel = "gaussian",
+                         lwd = 1,
+                         linetype = 1
+            )
+    }
+
+    if (savefig == TRUE) {
+        if (isSingleString(figname)) {
+            if (transparent_bg == FALSE) {
+                ggsave(
+                    here(glue('{folder}/{figname}.png')),
+                    plot = histo,
+                    device = 'png',
+                    scale = scale,
+                    units = 'cm',
+                    dpi = dpi,
+                    bg = 'white'
+                )
+
+                cli_alert_success(glue(
+                    "Plot successfully exported to the path ",
+                    style_underline(style_italic(col_br_red(glue(
+                        "\'{folder}/{figname}.png\'"))))
+                ))
+            } else if (transparent_bg == TRUE) {
+                ggsave(
+                    here(glue('{folder}/{figname}.png')),
+                    plot = histogram,
+                    device = 'png',
+                    scale = scale,
+                    units = 'cm',
+                    dpi = dpi
+                )
+
+                cli_alert_success(glue(
+                    "Plot successfully exported to the path ",
+                    style_underline(style_italic(col_br_red(glue(
+                        "\'{folder}/{figname}.png\'"))))
+                ))
+            } else {
+                cli_abort(paste0("The argument 'transparent_bg' must be ",
+                                 "either TRUE or FALSE"))
+            }
         } else {
             cli_abort("The argument 'figname' must be a single string")
         }
     }
-    return(net_plot)
+    return(histo)
 }
+
+
+# ===== Exporter functions =====================================================
+
+export_plot <- function(plot,
+                        figname,
+                        transparent_bg = FALSE,
+                        dpi = 96,
+                        scale = 1) {
+    folder <- here(outputs_folder('img'))
+
+    if (isSingleString(figname)) {
+        if (transparent_bg == FALSE){
+            ggsave(
+                here(glue('{folder}/{figname}.png')),
+                plot = plot,
+                device = 'png',
+                scale = scale,
+                dpi = dpi,
+                bg = 'white')
+
+            cli_alert_success(glue(
+                "Plot successfully exported to the path ",
+                style_underline(style_italic(col_br_red(glue(
+                    "\'{folder}/{figname}.png\'"))))
+            ))
+        } else if (transparent_bg == TRUE) {
+            ggsave(
+                here(glue('{folder}/{figname}.png')),
+                plot = plot,
+                device = 'png',
+                scale = scale,
+                dpi = dpi)
+
+            cli_alert_success(glue(
+                "Plot successfully exported to the path ",
+                style_underline(style_italic(
+                    col_br_red("\'{folder}/{figname}.png\'\n\n"))
+                )
+            ))
+        } else {
+            cli_abort(paste0("The argument 'transparent_bg' must be ",
+                             "either TRUE or FALSE"))
+        }
+    } else {
+        cli_abort("The argument 'figname' must be a single string")
+    }
+}
+
+
+prompt_export_plot <- function(data,
+                               title = NULL,
+                               subtitle = NULL,
+                               xlabel,
+                               ylabel,
+                               font = "Roboto Condensed",
+                               fontsize_barlabs = 14,
+                               fontsize_title = 20,
+                               fontsize_subt = 16,
+                               fontsize_axis = 15,
+                               figname = NULL,
+                               dpi = 96,
+                               scale = 1,
+                               transparent_bg = FALSE) {
+    folder <- here(outputs_folder('img'))
+
+    plot <- plot_results(data,
+                         title,
+                         subtitle,
+                         xlabel,
+                         ylabel = ylabel,
+                         font = font,
+                         fontsize_barlabs = 14,
+                         fontsize_title = 20,
+                         fontsize_subt = 16,
+                         fontsize_axis = 15,
+                         savefig = FALSE,
+                         figname = NULL,
+                         dpi = 96,
+                         scale = 1,
+                         transparent_bg = FALSE)
+
+    print(plot)
+
+    cli_h3("Do you wish to save this plot?")
+    cli_alert_info(paste0(
+        "Save plot: press 'y' or 'Y' and hit Enter\n",
+        "Discard: press 'n' or 'N' and hit Enter\n\n")
+    )
+
+    answer <- invisible(readline())
+
+    if ((answer == 'y') || (answer == 'Y')) {
+        plot <- plot_results(data,
+                             title,
+                             subtitle,
+                             xlabel,
+                             ylabel,
+                             font,
+                             fontsize_barlabs,
+                             fontsize_title,
+                             fontsize_subt,
+                             fontsize_axis,
+                             savefig = TRUE,
+                             figname = NULL,
+                             dpi = 96,
+                             scale = 1,
+                             transparent_bg = FALSE)
+
+        export_plot(plot,
+                    figname,
+                    transparent_bg = transparent_bg,
+                    dpi = dpi,
+                    scale = scale)
+    } else if ((answer == 'n') || (answer == 'N')) {
+        cli_alert_warning("Plot '{figname}.png' will not be saved")
+    } else {
+        cli_alert_warning(
+            glue("You should introduce either 'y' / 'Y' or 'n' / 'N' ",
+                 "but introduced {answer}. Try again"))
+        prompt_export_plot(data = data,
+                           title = title,
+                           subtitle = subtitle,
+                           xlabel = xlabel,
+                           ylabel = ylabel,
+                           font = font,
+                           fontsize_barlabs = fontsize_barlabs,
+                           fontsize_title = fontsize_title,
+                           fontsize_subt = fontsize_subt,
+                           fontsize_axis = fontsize_axis,
+                           figname = figname,
+                           dpi = dpi,
+                           scale = scale)
+    }
+}
+
+
+prompt_export_graph <- function(mapping_res,
+                                concentric = FALSE,
+                                figname = NULL,
+                                title = "Interactions between the SDGs",
+                                subtitle = "In the World Bank's portfolio",
+                                font = "Roboto Condensed",
+                                fontsize_base = 15,
+                                fontsize_title = 20,
+                                fontsize_subt = 16,
+                                dpi = 96,
+                                scale = 1) {
+    folder <- outputs_folder('img')
+
+    g <- plot_network(mapping_res,
+                      concentric,
+                      FALSE,
+                      figname,
+                      title,
+                      subtitle,
+                      font,
+                      fontsize_base = 15,
+                      fontsize_title = 20,
+                      fontsize_subt = 16,
+                      dpi = 96,
+                      scale = 1)
+
+    print(g)
+
+    cli_h3("Do you wish to save this graph?")
+    cli_alert_info(paste0(
+        "The position of the nodes is different for each iteration of the ",
+        "graph. This means the exported result will have different node ",
+        "positions\n\n",
+        "Save plot: press 'y' or 'Y' and hit Enter\n",
+        "Discard: press 'n' or 'N' and hit Enter\n\n")
+    )
+
+    answer <- invisible(readline())
+
+    if ((answer == 'y') || (answer == 'Y')) {
+        g <- plot_network(mapping_res,
+                          concentric,
+                          TRUE,
+                          figname,
+                          title,
+                          subtitle,
+                          font,
+                          fontsize_base,
+                          fontsize_title,
+                          fontsize_subt,
+                          dpi,
+                          scale)
+
+        # cli_alert_success(glue(
+        #     "Plot successfully exported to the path ",
+        #     style_underline(style_italic(col_br_red(glue(
+        #         "\'{folder}/{figname}.png\'\n\n"))))
+        # ))
+    } else if ((answer == 'n') || (answer == 'N')) {
+        cli_alert_warning("Plot '{figname}.png' will not be saved")
+    } else {
+        cli_alert_warning(
+            glue("You should introduce either 'y' / 'Y' or 'n' / 'N' ",
+                 "but introduced {answer}. Try again")
+        )
+
+        prompt_export_graph(mapping_res,
+                            concentric,
+                            figname,
+                            title,
+                            subtitle,
+                            font,
+                            fontsize_base,
+                            fontsize_title,
+                            fontsize_subt,
+                            dpi,
+                            scale)
+    }
+}
+
+prompt_export_histogram <- function(data,
+                                    binwidth = 2,
+                                    title = NULL,
+                                    subtitle = NULL,
+                                    xlabel = "Number of Goals",
+                                    ylabel = "Number of projects",
+                                    font = "Roboto Condensed",
+                                    fontsize_title = 20,
+                                    fontsize_subt = 16,
+                                    fontsize_axis = 15,
+                                    kde = FALSE,
+                                    figname = "SDG_distribution_proj",
+                                    dpi = 96,
+                                    scale = 1,
+                                    transparent_bg = FALSE,
+                                    test = FALSE) {
+    folder <- outputs_folder('img')
+
+    histogram <- plot_SDG_distribution(data,
+                                       binwidth,
+                                       title,
+                                       subtitle,
+                                       xlabel,
+                                       ylabel,
+                                       font,
+                                       fontsize_title = 20,
+                                       fontsize_subt = 16,
+                                       fontsize_axis = 15,
+                                       kde = kde,
+                                       savefig = FALSE,
+                                       figname = figname,
+                                       dpi = 96,
+                                       scale = 1,
+                                       transparent_bg = FALSE,
+                                       test = test)
+
+    print(histogram)
+
+    cli_h3("Do you wish to save this plot?")
+    cli_alert_info(paste0(
+        "Save plot: press 'y' or 'Y' and hit Enter\n",
+        "Discard: press 'n' or 'N' and hit Enter\n\n")
+    )
+
+    answer <- invisible(readline())
+
+    if ((answer == 'y') || (answer == 'Y')) {
+        histogram <- plot_SDG_distribution(data,
+                                           binwidth,
+                                           title,
+                                           subtitle,
+                                           xlabel,
+                                           ylabel,
+                                           font,
+                                           fontsize_title,
+                                           fontsize_subt,
+                                           fontsize_axis,
+                                           kde,
+                                           TRUE,
+                                           figname,
+                                           dpi,
+                                           scale,
+                                           transparent_bg,
+                                           test)
+
+        # cli_alert_success(glue(
+        #     "Plot successfully exported to the path ",
+        #     style_underline(style_italic(col_br_red(glue(
+        #         "\'{folder}/{figname}.png\'\n\n"))))
+        # ))
+    } else if ((answer == 'n') || (answer == 'N')) {
+        cli_alert_warning("Plot '{figname}.png' will not be saved")
+    } else {
+        cli_alert_warning(
+            glue("You should introduce either 'y' / 'Y' or 'n' / 'N' ",
+                 "but introduced {answer}. Try again")
+        )
+    }
+}
+
+
+export_summary <- function(summary, filename) {
+    folder <- outputs_folder('data')
+
+    write.csv(summary,
+              glue("{folder}/{filename}.csv"),
+              row.names = FALSE)
+    cli_alert_success(glue(
+        "Data successfully exported to the path ",
+        style_underline(style_italic(col_br_red(glue(
+            "\'{folder}/{filename}.csv\'"))))
+    ))
+}
+
+
+prompt_export_summary <- function() {
+    cli_h2(glue(
+        "Do you wish to ", col_br_green("export the results data"), "?"
+    ))
+    cli_alert_info(paste0(
+        "Save plot: press 'y' or 'Y' and hit Enter\n",
+        "Discard: press 'n' or 'N' and hit Enter\n\n")
+    )
+    answer <- invisible(readline())
+
+    if ((answer == 'y') | (answer == 'Y')) {
+        cli_alert_info("Results data will be exported")
+    } else if ((answer == 'n') | (answer == 'N')) {
+        cli_alert_warning("Results data will not be exported")
+    } else {
+        cli_alert_warning(
+            glue("You should introduce either 'y' / 'Y' or 'n' / 'N' ",
+                 "but introduced {answer}. Try again")
+        )
+        prompt_export_summary()
+    }
+    return(answer)
+}
+
+
 
 
 # Found in StackOverflow.

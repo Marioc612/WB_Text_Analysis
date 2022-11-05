@@ -6,6 +6,7 @@ library(pdftools)
 library(tidyverse)
 library(tidytext)
 library(here)
+library(readr)
 
 
 extract <- function(folder_path, absolute_path = FALSE) {
@@ -204,6 +205,7 @@ tidify <- function(df,
 
     # Saves the results to a JSON file
     if (export_json == TRUE) {
+        folder <- outputs_folder('data')
 
         write(jsonlite::toJSON(tibblist),
               file = here(glue("Saves/data/tidy_{version_name}.json")))
@@ -223,7 +225,7 @@ tidify <- function(df,
         cli_alert_success(glue(
             "Data successfully exported to the path ",
             style_underline(style_italic(
-                col_br_red("\'{cwd}/Saves/data/tidy_{json_name}.json\'")
+                col_br_red("\'{folder}/{json_name}.json\'")
             ))
         ))
 
@@ -242,11 +244,19 @@ tidify <- function(df,
 
 
 from_saves <- function(json_name) {
-    path = here(glue('Saves/data/tidy_{json_name}.json'))
+    folder <- outputs_folder('data')
+
+    path = here(glue('{folder}/{json_name}.json'))
 
     json_file <- as_tibble(jsonlite::fromJSON(path))
 
     cli_alert_success('Successfully imported JSON file')
 
     return(json_file)
+}
+
+
+outputs_folder <- function(kind) {
+    file <- read_file(here(glue('Settings/{kind}_output_folder.txt')))
+    return(file)
 }
