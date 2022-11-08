@@ -1,0 +1,178 @@
+---
+title: "Entrega del proyecto final"
+author: "Mario Cárdenas-Vélez"
+date: "2022-06-09"
+output:
+  html_document: default
+  pdf_document: default
+theme: paper
+highlight: zenburn
+toc: yes
+toc_depth: 4
+toc_floodt: yes
+collapse: no
+---
+
+# Objetivos
+
+**Objetivo general**
+
+1. Aplicar conceptos y tecnicas de programacion.
+
+2. Analizar un conjunto de datos desde multiples perspectivas y formas.
+
+**Objetivos especificos**
+
+1. Aplicar algun metodo estadistico al dataset elegido para describir su naturaleza.
+
+*Consignas*
+
+1. Explorar y describir el dataset.
+
+2. Realizar un notebook con un informe que detalle el comportamiento de cada una de las variables y las relaciones entre las mismas. Incluyendo todos los graficos que consideres necesarios para describir el fenomeno.
+
+*Items a incluir en la entrega*
+
+1. Dos graficos.
+2. Resumenes numericos.
+3. Visualizacion de data frames.
+4. Analizar y describir todas las variables individualmente y de a pares.
+5. Analizar y describir relaciones entre tres o mas variables si la conexion entre ellas esta justificada.
+
+# Desarrollo
+
+## Cargar librerias
+
+```{r Instalar librerías, message=FALSE}
+library(tidyverse)
+library(DT)
+library(plotly)
+```
+
+### Cargar dataset
+
+**Definir escritorio**
+```{r, message=FALSE}
+setwd('C:/Users/MarioCárdenas/OneDrive - SEI/Dokument')
+```
+
+**Cargar datos**
+```{r, message=FALSE}
+AirQuality_data <- read.csv('AirQualityUCI.csv', sep = ';', dec = ',')
+names(AirQuality_data)
+AirQuality_data$Date <- as.Date(AirQuality_data$Date)
+```
+**Quitar los puntos de los nombres de las columnas**
+```{r, message=FALSE}
+names(AirQuality_data) <- gsub("\\.", "", names(AirQuality_data))
+```
+
+**Revisamos que se hallan quitado los puntos**
+```{r, message=FALSE}
+names(AirQuality_data)
+```
+
+
+**Crear tabla dinámica para el objetivo 1**
+```{r, message=FALSE}
+resumen1 <- AirQuality_data %>% 
+     mutate(
+          Time_cat = factor(Time_cat)) %>%
+     group_by(Time_cat) %>% 
+     summarise(media_NOxGT = mean(NOxGT), .groups = "drop")
+
+resumen1 %>% 
+  DT::datatable(
+    rownames = FALSE,
+    filter = 'top')
+```
+
+
+
+**Dimensiones de los datos y NA**
+```{r Dataset, message=FALSE}
+
+analizar_dataset <- function(x) {
+     dimensiones <- dim(x)
+     if(dimensiones >= 0) {
+          print(dim(x))
+     }
+     datos_na <- is.na(x)
+     if(datos_na == TRUE) {
+          print(sum(is.na(x)), print(colSums(is.na(x))))
+     } else {
+          print('Dataset sin NA')
+     }
+}
+
+```
+**Aplicamos la función creada para ver las dimensiones y contar los NA del dataset**
+```{r}
+analizar_dataset(AirQuality_data)
+```
+
+
+### creación de gráficas
+
+**Gráfica de la emisión de Óxido de nitrogeno por periodo del día**
+
+```{r, message=FALSE}
+ggplot(AirQuality_data,
+       aes(NOxGT, fill=factor(Time_cat))) +
+     geom_histogram(color = 'grey')
+```
+
+**Gráfica de la evoluación de las emisiones de NO2 a través del tiempo**
+```{r}
+ggplot(AirQuality_data, 
+       aes(Date, NO2GT)) +
+     geom_point(color = 'red')
+```
+
+## Resumenes numericos y visualizacion de dataframe
+
+### Media del uso de energia en kWh categorizado por dia de la semana y por tipo de carga
+
+```{r}
+resumen_1 <- AirQuality_data %>% 
+     mutate(
+          Time_cat = factor(Time_cat),
+          Absolute_humidity = factor(Absolute_humidity)) %>%
+     group_by(Time_cat, Absolute_humidity) %>% 
+     summarise(media_No2GT = mean(NO2GT), .groups = "drop")
+
+resumen_1 %>% 
+  DT::datatable(
+    rownames = FALSE,
+    filter = 'top')
+
+```
+
+### Varianza categorizado por dia de la semana y estado de la semana con los datos filtrados a partir del siguiente criterio: Que la variables "Lagging Current Power Factor" sea menor a 80.
+
+```{r}
+resumen_2 <- AirQuality_data %>% 
+     mutate(
+          Time_cat = factor(Time_cat),
+          Absolute_humidity = factor(Absolute_humidity)
+     ) %>% 
+     filter(C6H6GT <= 9) %>% 
+     group_by(Time_cat, Absolute_humidity) %>% 
+     summarise(varianza_C6H6 = var(C6H6GT), .groups = "drop")
+
+resumen_2 %>% 
+  DT::datatable(
+    rownames = FALSE,
+    filter = 'top')
+```
+
+```{r}
+summary(AirQuality_data)
+
+data_Air_2 <- AirQuality_data %>%
+     select(-1, -2, -3, -17)
+
+cor.test(AirQuality_data$NOxGT, AirQuality_data$PT08_S2NMHC) ## dos variables
+cor(data_Air_2) ## multiples variables
+```
+
