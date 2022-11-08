@@ -1,6 +1,4 @@
 preset_analysis <- function(analysis_mode = 'test',
-                            data_from_saves = FALSE,
-                            saved_data_name = NULL,
                             save_tidy_texts = TRUE,
                             tidy_texts_filename = 'tidy_texts',
                             export_summaries = FALSE) {
@@ -15,14 +13,28 @@ preset_analysis <- function(analysis_mode = 'test',
 
     invisible(readline())
 
+    cli_text(glue(
+        "Write your option and then press ",
+        col_br_green("ENTER"), " to continue:\n\n",
+        col_br_green("1) "), "Start analysis from scratch.\n",
+        col_br_green("2) "), "Read saved data.\n\n"))
+
+    option <- as.character(invisible(readline()))
+
+
     # ====== Setting up text fonts =============================================
     initialise_fonts()
 
 
     # ===== Text pre-processing ================================================
-    if (data_from_saves == FALSE) {
+    if (option == '1') {
+        cli_text(glue(
+            "Write the name of the folder and press ",
+            col_br_green("ENTER"), " to continue:\n\n"))
+
+        name <- as.character(invisible(readline()))
         # Text extraction
-        texts <- extract('Test')
+        texts <- extract(name)
 
         # Text tidying
         tidy <- tidify(
@@ -31,18 +43,19 @@ preset_analysis <- function(analysis_mode = 'test',
             low_lim = 0,
             up_lim = 1,
             export_json = save_tidy_texts,
-            json_name = tidy_texts_filename
+            version_name = tidy_texts_filename
         )
 
-    } else if (data_from_saves == TRUE) {
+    } else if (option == '2') {
         # Retrieving previously saved data
-        if (isSingleString(saved_data_name)) {
-            tidy <- from_saves(saved_data_name)
-        } else {
-            cli_abort(paste0("If the argument 'data_from_saves' is TRUE, ",
-                             "the argument 'saved_data_name' should be a ",
-                             "single string"))
-        }
+        cli_text(glue(
+        "Write the name of the saved file and press ",
+        col_br_green("ENTER"), " to continue:\n\n"))
+
+        name <- as.character(invisible(readline()))
+
+        tidy <- from_saves(name)
+
     }
 
     if (analysis_mode == 'analysis') {

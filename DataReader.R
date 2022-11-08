@@ -9,7 +9,9 @@ library(here)
 library(readr)
 
 
-extract <- function(folder_path, absolute_path = FALSE) {
+extract <- function(folder_name) {
+    path <- here(glue('PDF/', folder_name))
+
     cli_h1(
         glue(
             "The extraction process has started. Please, be patient, this ",
@@ -24,16 +26,6 @@ extract <- function(folder_path, absolute_path = FALSE) {
     # stop word list
     stopwords_regex <- paste(tidytext::stop_words$word, collapse = '\\b|\\b')
     stopwords_regex <- paste0('\\b', stopwords_regex, '\\b')
-
-    # Sets the conditions for treating the path input as a relative or absolute
-    # path
-    if (absolute_path == FALSE) {
-        path <- here(folder_path)
-    }
-
-    if (absolute_path == TRUE) {
-        path <- folder_path
-    }
 
     # Get a list of all PDF files in a folder
     filenames <- list.files(path, pattern = "*.pdf", full.names = TRUE)
@@ -208,7 +200,7 @@ tidify <- function(df,
         folder <- outputs_folder('data')
 
         write(jsonlite::toJSON(tibblist),
-              file = here(glue("Saves/data/tidy_{version_name}.json")))
+              file = here(glue("{folder}/{version_name}.json")))
 
         # Ends the function's general timer
         t_f_general <- Sys.time()
@@ -225,7 +217,7 @@ tidify <- function(df,
         cli_alert_success(glue(
             "Data successfully exported to the path ",
             style_underline(style_italic(
-                col_br_red("\'{folder}/{json_name}.json\'")
+                col_br_red("\'{folder}/{version_name}.json\'")
             ))
         ))
 
@@ -233,7 +225,7 @@ tidify <- function(df,
             glue(
                 "Remember that you can open the saved ",
                 "file by running the function ",
-                style_italic("\"from_saves(\'{json_name}\')\"")
+                style_italic("\"from_saves(\'{version_name}\')\"")
             )
         )
 

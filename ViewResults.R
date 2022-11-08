@@ -233,6 +233,8 @@ get_SDGs_proj <- function(mapping_res) {
 results_matrix <- function(mapping_res,
                            relative_freqs = FALSE,
                            with_main_SDG = TRUE) {
+    unit <- '# matches'
+
     matrix_results <- mapping_res %>%
         count_matches(by = 'SDG',
                       sorted = 'Frequency',
@@ -243,44 +245,39 @@ results_matrix <- function(mapping_res,
                                   names_from = 'SDG',
                                   values_from = 'Frequency')
 
-    matrix_results <- matrix_results %>%
-        dplyr::select(str_sort(colnames(matrix_results), numeric = TRUE))
+    projects <- as.list(matrix_results %>% select(Project))[[1]]
 
     matrix_results <- matrix_results %>%
-        replace(is.na(.), 0)
+        dplyr::select(str_sort(colnames(matrix_results), numeric = TRUE)) %>%
+        replace(is.na(.), 0) %>%
+        column_to_rownames('Project')
+
+    # Identifying the main goals -----------------------------------------------
+    main_goals <- matrix_results %>%
+        rowwise() %>%
+        mutate(main_SDG = paste0(names(.)[c_across() == max(c_across())],
+                                 collapse = '_'
+        ))
+
+    main_goals <- main_goals %>% select(main_SDG)
+    main_goals <- main_goals[[1]]
 
     if (relative_freqs == TRUE) {
-        projects <- as.list(matrix_results %>% select(Project))[[1]]
-
-        matrix_results <- matrix_results %>%
-            select(-Project)
+        unit <- '%'
 
         for (i in 1:nrow(matrix_results)) {
             matrix_results[i, ] <-
-                round(100 * matrix_results[i, ] / sum(matrix_results[i, ]), 0)
+                round(100 * matrix_results[i, ] / sum(matrix_results[i, ]), 1)
         }
-
-        matrix_results <- matrix_results %>%
-            add_column(Project = projects, .before = 1, ) %>%
-            add_column(Unit = rep('%', nrow(matrix_results)), .after = 1)
-    } else if (relative_freqs == FALSE) {
-        matrix_results <- matrix_results %>%
-            add_column(Unit = rep('# matches', nrow(matrix_results)),
-                       .after = 1)
-    } else {
-        cli_alert_warning(paste0("The parameter 'relative_freqs' should be ",
-                                 "either TRUE or FALSE. By default, the ",
-                                 "any other value will return an absolute ",
-                                 "frequencies matrix"))
     }
 
-    if (with_main_SDG == TRUE) {
-        main_goals <- get_main_SDG(mapping_res,
-                                   from_binary = FALSE,
-                                   collapse_SDG = FALSE)
+    matrix_results <- matrix_results %>%
+        rownames_to_column('Project') %>%
+        add_column(Unit = rep(unit, nrow(matrix_results)), .after = 1)
 
+    if (with_main_SDG == TRUE) {
         matrix_results <- matrix_results %>%
-            dplyr::mutate(main_SDG = main_goals$SDG)
+            add_column(Main_SDG = main_goals)
     }
     return(matrix_results)
 }
@@ -949,7 +946,7 @@ prompt_export_summary <- function() {
         "Do you wish to ", col_br_green("export the results data"), "?"
     ))
     cli_alert_info(paste0(
-        "Save plot: press 'y' or 'Y' and hit Enter\n",
+        "Save: press 'y' or 'Y' and hit Enter\n",
         "Discard: press 'n' or 'N' and hit Enter\n\n")
     )
     answer <- invisible(readline())

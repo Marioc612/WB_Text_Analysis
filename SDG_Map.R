@@ -7,13 +7,10 @@ library(showtext)
 source(here('DataReader.R'))
 source(here('ViewResults.R'))
 source(here('AnalysisModule.R'))
-# source(here::here('DataManipulation.R'))
 
 preset_analysis(analysis_mode = 'test',
-                data_from_saves = TRUE,
-                saved_data_name = 'Test',
                 save_tidy_texts = FALSE,
-                tidy_texts_filename = NULL,
+                tidy_texts_filename = 'Test',
                 export_summaries = TRUE)
 
 
@@ -23,14 +20,18 @@ initialise_fonts()
 
 
 # ====== Loading the saved data instead of processing it again =================
-# texts <- extract('Test')
-#
-# tidy <- tidify(texts, token='sentences', low_lim = 0, up_lim=1,
-#                export_json=TRUE, json_name='Test')
+texts <- extract('Test')
 
-tidy <- from_saves('Test') # --------------------------- Using the saved results
+# You can tidy the extracted texts
+tidy <- tidify(texts, token='sentences', low_lim = 0, up_lim=1,
+               export_json=TRUE, version_name='Test')
+# --------------------------- or Using previously saved tidy results
+tidy <- from_saves('Test')
 
+# Using test data
 results <- generate_testData(tidy)
+
+# --------------------------- identifying the SDGs
 
 results <- identify_SDGs(results)
 
@@ -66,42 +67,11 @@ occurrence_SDG <- count_occurrence(results,
 # -------------------------------> can feed a column plot and be exported to csv
 main_SDGs <- get_main_SDG(results,
                           from_binary = FALSE,
-                          collapse_SDG = TRUE)
+                          collapse_SDG = FALSE)
 
 SDGs_proj <- get_SDGs_proj(results)
 
-
-# Plotting =====================================================================
-
-occurrence_SDG %>% plot_results(title = 'Testing',
-                        xlabel = 'SDG',
-                        ylabel = 'Number of projects',
-                        # savefig = TRUE,
-                        # figname = 'Test 1',
-                        scale = 1)
-
-matches_SDG %>% plot_results(title='Testing 2',
-                     xlabel='SDG',
-                     ylabel='Number of matches',
-                     # savefig = TRUE,
-                     # figname = 'Test 2',
-                     scale = 1)
-
-main_SDGs %>% plot_results(title = 'Testing main',
-                           xlabel = 'SDG',
-                           ylabel = 'Number of projects',
-                           # savefig = TRUE,
-                           # figname = 'Test 3',
-                           scale = 1)
-
-
-results %>% plot_SDG_distribution(
-    binwidth = 2,
-    title = "Testing 3",
-    test = TRUE)
-
-
-# Results as matrix ============================================================
+# Results as matrix ------------------------------------------------------------
 
 matrix_relative <- results_matrix(results,
                                   relative_freqs = TRUE,
@@ -111,9 +81,42 @@ matrix_absolute <- results_matrix(results,
                                   relative_freqs = FALSE,
                                   with_main_SDG = TRUE)
 
+
+# Plotting =====================================================================
+
+occ <- occurrence_SDG %>% plot_results(
+    title = 'Testing',
+    xlabel = 'SDG',
+    ylabel = 'Number of projects',
+    # savefig = TRUE,
+    # figname = 'Test 1',
+    scale = 1)
+
+matches <- matches_SDG %>% plot_results(
+    title = 'Testing 2',
+    xlabel ='SDG',
+    ylabel ='Number of matches',
+    # savefig = TRUE,
+    # figname = 'Test 2',
+    scale = 1)
+
+main_SDG <- main_SDGs %>% plot_results(
+    title = 'Testing main',
+    xlabel = 'SDG',
+    ylabel = 'Number of projects',
+    # savefig = TRUE,
+    # figname = 'Test 3',
+    scale = 1)
+
+histo <- results %>% plot_SDG_distribution(
+    binwidth = 2,
+    title = "Testing 3",
+    test = TRUE)
+
+
 # Network ======================================================================
 
 # Generate network from results --------------------
 net <- generate_network(results)
 
-plot_network(results, savefig = TRUE, figname = 'Network test')
+graph <- plot_network(results)
