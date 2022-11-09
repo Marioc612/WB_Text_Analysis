@@ -23,9 +23,13 @@ initialise_fonts()
 texts <- extract('Test')
 
 # You can tidy the extracted texts
-tidy <- tidify(texts, token='sentences', low_lim = 0, up_lim=1,
-               export_json=TRUE, version_name='Test')
-# --------------------------- or Using previously saved tidy results
+tidy <- tidify(texts,
+               token='sentences',
+               low_lim = 0,
+               up_lim=1,
+               export_json=TRUE,
+               version_name='Test')
+# --------------------------- or Using previously pre-processed results
 tidy <- from_saves('Test')
 
 # Using test data
@@ -70,6 +74,7 @@ main_SDGs <- get_main_SDG(results,
                           collapse_SDG = FALSE)
 
 SDGs_proj <- get_SDGs_proj(results)
+
 
 # Results as matrix ------------------------------------------------------------
 

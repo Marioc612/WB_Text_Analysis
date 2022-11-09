@@ -1,7 +1,7 @@
 ---
-title: "Entrega del proyecto final"
-author: "Mario Cárdenas-Vélez"
-date: "2022-06-09"
+title: "SDG Mapper Tool"
+author: "Stockholm Environment Institute"
+date: "2022-11-09"
 output:
   html_document: default
   pdf_document: default
@@ -13,166 +13,185 @@ toc_floodt: yes
 collapse: no
 ---
 
-# Objetivos
+SDG Mapper Tool
+==============
 
-**Objetivo general**
+***A tool for mapping the projects of the World Bank to the SDGs***
 
-1. Aplicar conceptos y tecnicas de programacion.
+**Authors:** *Stockholm Environment Institute (SEI)*
 
-2. Analizar un conjunto de datos desde multiples perspectivas y formas.
+# Introduction
 
-**Objetivos especificos**
+This RMarkdown file showcases the SDG Mapper Tool developed by...
 
-1. Aplicar algun metodo estadistico al dataset elegido para describir su naturaleza.
+## About this document
 
-*Consignas*
+## Anything else?
 
-1. Explorar y describir el dataset.
 
-2. Realizar un notebook con un informe que detalle el comportamiento de cada una de las variables y las relaciones entre las mismas. Incluyendo todos los graficos que consideres necesarios para describir el fenomeno.
 
-*Items a incluir en la entrega*
+# Running the app
 
-1. Dos graficos.
-2. Resumenes numericos.
-3. Visualizacion de data frames.
-4. Analizar y describir todas las variables individualmente y de a pares.
-5. Analizar y describir relaciones entre tres o mas variables si la conexion entre ellas esta justificada.
+## Importing packages
 
-# Desarrollo
+This program requires to install and import external libraries for its functioning. They are _cli_, _ggplot2_, _ggraph_, _glue_, _here_, _igraph_, _jsonlite_, _pdftools_, _readr_, _showtext_, _sysfonts_, _tidygraph_, _tidytext_, and _tidyverse._ If you have them installed (for example, if you are using the SDG Mapper for the first time), you can skip the following chunk to import them. However, **if you need to install the packages**, you can do it here:
 
-## Cargar librerias
+```{r message=FALSE}
+import.packages('cli')
+import.packages('ggplot2')
+import.packages('ggraph')
+import.packages('glue')
+import.packages('here')
+import.packages('igraph')
+import.packages('jsonlite')
+import.packages('pdftools')
+import.packages('readr')
+import.packages('showtext')
+import.packages('sysfonts')
+import.packages('tidygraph')
+import.packages('tidytext')
+import.packages('tidyverse')
+```
 
-```{r Instalar librerías, message=FALSE}
+In addition to the external packages, the functions of the SDG Mapper must be sourced. Also, the fonts used for plotting must be initialized. You can do all of that with the next code chunk.
+
+```{r message=FALSE}
+library(cli)
+library(ggplot2)
+library(ggraph)
+library(glue)
+library(here)
+library(igraph)
+library(jsonlite)
+library(pdftools)
+library(readr)
+library(showtext)
+library(sysfonts)
+library(tidygraph)
+library(tidytext)
 library(tidyverse)
-library(DT)
-library(plotly)
+
+source(here('DataReader.R'))
+source(here('ViewResults.R'))
+source(here('AnalysisModule.R'))
+
+initialise_fonts()
 ```
 
-### Cargar dataset
+## Loading the dataset
 
-**Definir escritorio**
-```{r, message=FALSE}
-setwd('C:/Users/MarioCárdenas/OneDrive - SEI/Dokument')
-```
+There are two options for loading your data to the SDG Mapper. The first one is to create a new analysis and extracting the texts of all the PDF files in a folder. The second one is to retrieve the saved data from a previous analysis. You can only choose one of the options that are described next.
 
-**Cargar datos**
-```{r, message=FALSE}
-AirQuality_data <- read.csv('AirQualityUCI.csv', sep = ';', dec = ',')
-names(AirQuality_data)
-AirQuality_data$Date <- as.Date(AirQuality_data$Date)
-```
-**Quitar los puntos de los nombres de las columnas**
-```{r, message=FALSE}
-names(AirQuality_data) <- gsub("\\.", "", names(AirQuality_data))
-```
+### Start a new analysis from scratch
 
-**Revisamos que se hallan quitado los puntos**
-```{r, message=FALSE}
-names(AirQuality_data)
-```
+You can process the PDF files contained in a folder for mapping them to the SDGs. The following chunk of code can be modified for:
 
+1. Specifying the name of the folder that contains the PDF files.
+2. Choosing whether to save the tidy data (i.e., the pre-processed data that the model uses for classifying the documents).
+3. The name of the output file.
 
-**Crear tabla dinámica para el objetivo 1**
-```{r, message=FALSE}
-resumen1 <- AirQuality_data %>% 
-     mutate(
-          Time_cat = factor(Time_cat)) %>%
-     group_by(Time_cat) %>% 
-     summarise(media_NOxGT = mean(NOxGT), .groups = "drop")
+You can adjust these variables using the first three lines of code in the chunk. 
 
-resumen1 %>% 
-  DT::datatable(
-    rownames = FALSE,
-    filter = 'top')
-```
-
-
-
-**Dimensiones de los datos y NA**
-```{r Dataset, message=FALSE}
-
-analizar_dataset <- function(x) {
-     dimensiones <- dim(x)
-     if(dimensiones >= 0) {
-          print(dim(x))
-     }
-     datos_na <- is.na(x)
-     if(datos_na == TRUE) {
-          print(sum(is.na(x)), print(colSums(is.na(x))))
-     } else {
-          print('Dataset sin NA')
-     }
-}
-
-```
-**Aplicamos la función creada para ver las dimensiones y contar los NA del dataset**
-```{r}
-analizar_dataset(AirQuality_data)
-```
-
-
-### creación de gráficas
-
-**Gráfica de la emisión de Óxido de nitrogeno por periodo del día**
-
-```{r, message=FALSE}
-ggplot(AirQuality_data,
-       aes(NOxGT, fill=factor(Time_cat))) +
-     geom_histogram(color = 'grey')
-```
-
-**Gráfica de la evoluación de las emisiones de NO2 a través del tiempo**
-```{r}
-ggplot(AirQuality_data, 
-       aes(Date, NO2GT)) +
-     geom_point(color = 'red')
-```
-
-## Resumenes numericos y visualizacion de dataframe
-
-### Media del uso de energia en kWh categorizado por dia de la semana y por tipo de carga
+1. `FOLDER` can receive any string (i.e., word/short sentence) between quotation marks as input. It is the name of the folder containing the PDFs and must be located inside the "PDF" folder in the main directory of this app (i.e., the folder containing the R Markdown file you opened).
+2. `SAVE_RESULTS` must be either `TRUE` or `FALSE` without quotation marks. If you want to save the results, you must write `TRUE`.
+3. `FILENAME` Is the name of the file that will be saved with the pre-processed data. It will be located in the *'Saves/data'* folder in the main directory of the app. You can write any string inside quotation marks.
 
 ```{r}
-resumen_1 <- AirQuality_data %>% 
-     mutate(
-          Time_cat = factor(Time_cat),
-          Absolute_humidity = factor(Absolute_humidity)) %>%
-     group_by(Time_cat, Absolute_humidity) %>% 
-     summarise(media_No2GT = mean(NO2GT), .groups = "drop")
+FOLDERNAME <- 'Test'    # Name of the folder that contains the PDF files
+SAVE_RESULTS <- TRUE    # Must be TRUE or FALSE
+FILENAME <- 'Test'      # The name of the file that will contain the saved results
 
-resumen_1 %>% 
-  DT::datatable(
-    rownames = FALSE,
-    filter = 'top')
+# Extracting the texts from all the PDF files in a folder
+texts <- extract(FOLDERNAME)
 
+# You can tidy the extracted texts
+tidy <- tidify(texts, 
+               token = 'sentences', 
+               low_lim = 0, 
+               up_lim = 1,
+               export_json = SAVE_RESULTS,
+               version_name = FILENAME)
 ```
 
-### Varianza categorizado por dia de la semana y estado de la semana con los datos filtrados a partir del siguiente criterio: Que la variables "Lagging Current Power Factor" sea menor a 80.
+### Retrieving previously saved pre-processed data
+
+You can retrieve a previously saved file using the function `from_saves()`. To use it, you must write the name of the previously saved file. It must be the same as the `FILENAME` used for running the pre-processing.
 
 ```{r}
-resumen_2 <- AirQuality_data %>% 
-     mutate(
-          Time_cat = factor(Time_cat),
-          Absolute_humidity = factor(Absolute_humidity)
-     ) %>% 
-     filter(C6H6GT <= 9) %>% 
-     group_by(Time_cat, Absolute_humidity) %>% 
-     summarise(varianza_C6H6 = var(C6H6GT), .groups = "drop")
-
-resumen_2 %>% 
-  DT::datatable(
-    rownames = FALSE,
-    filter = 'top')
+tidy <- from_saves('Test')
 ```
 
+## Classifying the loaded data
+________________________________________________________________________________
+________________________________________________________________________________
+MARIO -- MARIO -- MARIO -- MARIO -- MARIO
+
+AQUÍ VA EL MODELO DE MACHINE LEARNING
+________________________________________________________________________________
+________________________________________________________________________________
+
+## Data analysis
+
+The machine learning model outputs a table of texts mapped to the SDG Targets. First, we must identify the SDGs of every entry using the `identify_SDGs()` function.
+Also, the data can be summarized using the `count_matches()`, `count_occurrence()`, `get_main_SDG()`, `get_SDGs_proj()`, `results_matrix`()`, and `get_network()` functions. These functions are used in the following code chunk to get the following tables:
+
+1. **matches_T:** it is the total of matches to any SDG by project.
+2. **matches_SDG:** it is the total of matches of all SDGs across the portfolio.
+3. **matches_tgt** it is the total of matches of all SDG Targets across the portfolio.
+4. **occurrence_SDG:** it is the number of projects that the SDGs have been mapped to.
+5. **main_SDGs:** it is a table containing the most prominent SDG of every project.
+5. **SDGs_proj:** it is the number of SDGs that every project is mapped to.
+6. **matrix_relative:** it is a matrix with the mapping results in a wide format. The relative matrix displays the percentages that every SDG share from the total matches in a project.
+7. **matrix_absolute:** it is a matrix with the mapping results in a wide format. The absolute matrix displays the total mappings of each SDG across the projects.
+8. **net:** it is an _igraph_ network dataframe that can be plotted with _ggraph_.
+
 ```{r}
-summary(AirQuality_data)
+results <- identify_SDGs(results)
 
-data_Air_2 <- AirQuality_data %>%
-     select(-1, -2, -3, -17)
+# Total matches by project -------------------------------> can feed a histogram
+matches_T <- count_matches(results,
+                           by = 'total_matches',
+                           sorted = 'Frequency')
 
-cor.test(AirQuality_data$NOxGT, AirQuality_data$PT08_S2NMHC) ## dos variables
-cor(data_Air_2) ## multiples variables
+# Total matches by Project and SDG ---------------------> can feed a column plot
+matches_SDG <- count_matches(results,
+                             by = 'SDG',
+                             sorted = 'Frequency',
+                             collapse_projects = TRUE)
+
+# Total matches by Project and Target ------------------> can be exported as csv
+matches_tgt <- count_matches(results,
+                             by = 'Target',
+                             sorted = 'Frequency',
+                             collapse_projects = TRUE)
+
+# Binary occurrence results by SDG ---------------------> can be exported as csv
+occurrence_SDG <- count_occurrence(results,
+                                   by = 'SDG',
+                                   collapse_projects = TRUE)
+
+
+# Identify the main SDG in each project. From binary == TRUE identifies the main
+# SDG with the sum of the binary frequencies (presence or absence of a target)
+# of all targets in a SDG.
+# -------------------------------> can feed a column plot and be exported to csv
+main_SDGs <- get_main_SDG(results,
+                          from_binary = FALSE,
+                          collapse_SDG = FALSE)
+
+SDGs_proj <- get_SDGs_proj(results)
+
+
+# Results as matrix ------------------------------------------------------------
+
+matrix_relative <- results_matrix(results,
+                                  relative_freqs = TRUE,
+                                  with_main_SDG = TRUE)
+
+matrix_absolute <- results_matrix(results,
+                                  relative_freqs = FALSE,
+                                  with_main_SDG = TRUE)
+
+net <- generate_network(results)
 ```
 
