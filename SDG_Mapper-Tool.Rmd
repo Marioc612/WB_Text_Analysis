@@ -270,7 +270,6 @@ main_SDGs %>% plot_results(
     scale = 1)
 ```
 
-
 ### Distribution of the number of SDGs by Project
 
 The distribution of the number of SDGs by project is a histogram which displays the number of SDGs mapped in each project. Also, it identifies the _mean number of SDGs_ mapped in a project.
@@ -278,28 +277,19 @@ The distribution of the number of SDGs by project is a histogram which displays 
 ```{r}
 results %>% plot_SDG_distribution(
     binwidth = 2,
-    title = "Testing 3",
-    test = TRUE)
+    title = "Distribution of the number of SDGs",
+    subtitle = "mapped by project",
+    test = TRUE,
+    fontsize_title = 35,
+    fontsize_subt = 25,
+    fontsize_axis = 20,
+    dpi = 96)
 ```
-
 
 ### Network graph
 
 This image shows the interconnection between the SDGs. We considered that two SDGs interact if they coexist in the same project. The network graph is an aggregate of the coexistance between the SDGs across the World Bank's portfolio.
 
-
-
-
-
 ```{r}
-occ <- occurrence_SDG %>% plot_results(
-    title = 'Testing',
-    xlabel = 'SDG',
-    ylabel = 'Number of projects',
-    fontsize_barlabs = 15,
-    fontsize_title = 50,
-    fontsize_axis = 30,
-    scale = 1,
-    dpi = 300)
-
+plot_network(results)
 ```

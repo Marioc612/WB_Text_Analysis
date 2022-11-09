@@ -571,8 +571,8 @@ plot_SDG_distribution <- function(mapping_res,
                       vjust = 0,
                       colour = 'red',
                       alpha = 1,
-                      size = fontsize_axis
-        ),
+                      ),
+                  size = fontsize_axis/.pt
         ) +
         ggtitle(title, subtitle)
 
