@@ -404,7 +404,7 @@ plot_results <- function(data,
                                       family = 'Roboto Condensed'),
             plot.subtitle = element_text(size = fontsize_subt,
                                          hjust = 0,
-                                         margin = margin(0, 0, 25, 0))
+                                         margin = margin(0, 0, 25, 0)),
         )
     return(fig)
 }
@@ -637,7 +637,8 @@ export_plot <- function(plot,
                         figname,
                         transparent_bg = FALSE,
                         dpi = 96,
-                        scale = 1) {
+                        scale = 1,
+                        plot_width = 15.5) {
     folder <- here(outputs_folder('img'))
 
     if (isSingleString(figname)) {
@@ -646,6 +647,9 @@ export_plot <- function(plot,
                 here(glue('{folder}/{figname}.png')),
                 plot = plot,
                 device = 'png',
+                width = plot_width,
+                height = plot_width * 0.618,
+                unit = 'cm',
                 scale = scale,
                 dpi = dpi,
                 bg = 'white')
@@ -660,6 +664,9 @@ export_plot <- function(plot,
                 here(glue('{folder}/{figname}.png')),
                 plot = plot,
                 device = 'png',
+                width = plot_width,
+                height = plot_width * 0.618,
+                unit = 'cm',
                 scale = scale,
                 dpi = dpi)
 

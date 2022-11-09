@@ -196,10 +196,9 @@ tidify <- function(df,
 
     # Saves the results to a JSON file
     if (export_json == TRUE) {
-        folder <- outputs_folder('data')
 
         write(jsonlite::toJSON(tibblist),
-              file = here(glue("{folder}/{version_name}.json")))
+              file = here(glue("Saves/{version_name}.json")))
 
         # Ends the function's general timer
         t_f_general <- Sys.time()
@@ -216,7 +215,7 @@ tidify <- function(df,
         cli_alert_success(glue(
             "Data successfully exported to the path ",
             style_underline(style_italic(
-                col_br_red("\'{folder}/{version_name}.json\'")
+                col_br_red("\'Saves/{version_name}.json\'")
             ))
         ))
 
@@ -235,9 +234,7 @@ tidify <- function(df,
 
 
 from_saves <- function(json_name) {
-    folder <- outputs_folder('data')
-
-    path = here(glue('{folder}/{json_name}.json'))
+    path = here(glue('Saves/{json_name}.json'))
 
     json_file <- as_tibble(jsonlite::fromJSON(path))
 

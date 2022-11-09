@@ -89,13 +89,21 @@ matrix_absolute <- results_matrix(results,
 
 # Plotting =====================================================================
 
+initialise_fonts(dpi = 300)
+
 occ <- occurrence_SDG %>% plot_results(
     title = 'Testing',
     xlabel = 'SDG',
     ylabel = 'Number of projects',
+    fontsize_barlabs = 40,
+    fontsize_title = 50,
+    fontsize_axis = 25,
     # savefig = TRUE,
     # figname = 'Test 1',
-    scale = 1)
+    scale = 1,
+    dpi = 300)
+
+export_plot(occ, 'occ', dpi = 300)
 
 matches <- matches_SDG %>% plot_results(
     title = 'Testing 2',
