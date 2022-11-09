@@ -119,6 +119,7 @@ You can retrieve a previously saved file using the function `from_saves()`. To u
 
 ```{r}
 tidy <- from_saves('Test')
+results <- generate_testData(tidy)
 ```
 
 ## Classifying the loaded data
@@ -198,3 +199,8 @@ net <- generate_network(results)
 ```
 
 ### Exporting the summary data tables
+
+```{r}
+
+```
+
