@@ -374,11 +374,12 @@ plot_results <- function(data,
                   aes(fct_rev(fct_reorder(SDG, Frequency)), Frequency)) +
         geom_col(aes(fill = Color)) +
         geom_text(
-            aes(SDG, Frequency, label = Frequency, size = fontsize_barlabs),
+            aes(SDG, Frequency, label = Frequency),
             angle = 90,
             vjust = 0.35,
             hjust = 1.3,
             colour = 'white',
+            size = fontsize_barlabs
         ) +
         scale_fill_identity() +
         ggtitle(title, subtitle) +
@@ -393,9 +394,8 @@ plot_results <- function(data,
                                         margin = margin(0, 15, 0, 0)),
             axis.text.x = element_text(angle = 90,
                                        vjust = 0.5,
-                                       hjust = 0,
-                                       size = fontsize_axis),
-            axis.text.y = element_text(size = fontsize_axis),
+                                       hjust = 0),
+            axis.text = element_text(size = fontsize_axis),
             legend.position = 'none',
             plot.title = element_text(size = fontsize_title,
                                       face = 'bold',
