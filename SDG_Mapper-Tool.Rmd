@@ -132,6 +132,8 @@ ________________________________________________________________________________
 
 ## Data analysis
 
+### Creating summary data tables
+
 The machine learning model outputs a table of texts mapped to the SDG Targets. First, we must identify the SDGs of every entry using the `identify_SDGs()` function.
 Also, the data can be summarized using the `count_matches()`, `count_occurrence()`, `get_main_SDG()`, `get_SDGs_proj()`, `results_matrix`()`, and `get_network()` functions. These functions are used in the following code chunk to get the following tables:
 
@@ -195,3 +197,4 @@ matrix_absolute <- results_matrix(results,
 net <- generate_network(results)
 ```
 
+### Exporting the summary data tables
