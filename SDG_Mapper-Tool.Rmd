@@ -1,20 +1,10 @@
 ---
-title: "SDG Mapper Tool"
-author: "Stockholm Environment Institute"
-date: "2022-11-09"
 output:
-  html_document: default
   pdf_document: default
-theme: paper
-highlight: zenburn
-toc: yes
-toc_depth: 4
-toc_floodt: yes
-collapse: no
+  html_document: default
 ---
-
-SDG Mapper Tool
-==============
+SDG Mapping Tool
+================
 
 ***A tool for mapping the projects of the World Bank to the SDGs***
 
@@ -22,9 +12,9 @@ SDG Mapper Tool
 
 # Introduction
 
-This RMarkdown file showcases the SDG Mapper Tool developed by the Stockholm Environment Institute - Latin America Center - to automate and improve the process of mapping how different WB projects are connected to the SDG targets. This exercise is based upon the mapping methodology developed by SEI to use for World Bank projects from the FY20 and the FY21 portfolios and the KH coder text-mining protocol for the same years.
+This RMarkdown file showcases the SDG Mapping Tool developed by the Stockholm Environment Institute - Latin America Center - to automate and improve the process of mapping how different WB projects are connected to the SDG targets. This exercise is based upon the mapping methodology developed by SEI to use for World Bank projects from the FY20 and the FY21 portfolios and the KH coder text-mining protocol for the same years.
 
-The script detailed below is written in the R programming language and employs the Random Forest Machine Learning algorithm, which belongs to the supervised learning techniques. It is based on the concept of ensemble learning, combining multiple classifiers to solve complex classification problems. Furthermore, in addition to classifying the WB projects to the SDGs, this script also includes the automatic generation of visualizations.
+The script detailed below is written in the R programming language and employs the Random Forest Machine Learning algorithm, which belongs to the supervised learning techniques. It is based in ensemble learning, combining multiple classifiers to solve complex classification problems. Furthermore, in addition to classifying the WB projects to the SDGs, this script also includes the automatic generation of visualizations.
 
 **General objective**
 
@@ -45,65 +35,81 @@ The script detailed below is written in the R programming language and employs t
 
 # Running the app
 
-Describir requisitos para usar el script. 
-Por ejemplo: Sistema operativo, características de hardware.
-Aquí poner descripción sobre cómo correr el script.
+The script should be used with **R 4.2.1** or more recent. Also, it has been tested on **Windows 10 and 11** machine with 8 Gb RAM and 2100 Mhz 6-core processor, so we recommend using a machine with those characteristics or better if you want to analyze many documents. Regarding the OS, we advice to use the same we used to test the script.
+
+For running the script, you should open the _"SDG Mapper Tool.Rproj"_ file, located in the main directory of the app – i.e., the main folder that contains the app's files. When you open the app for the first time, you may need to open the app's script. To do it, you can click on _File_ in the RStudio toolbar, and look for the _SDG_Map.R_ file, located in the same folder as _"SDG Mapper Tool.Rproj"_.
+
+After that, you should see a file that begins with the following lines of code:
+
+```{r Code example, eval=FALSE, include=FALSE}
+library(here)
+library(ggplot2)
+library(ggraph)
+library(tidygraph)
+library(igraph)
+library(tm)
+library(SnowballC)
+library(caTools)
+library(randomForest)
+library(showtext)
+source(here('src', 'DataReader.R'))
+source(here('src', 'Mapper.R'))
+source(here('src', 'ViewResults.R'))
+```
+
+These lines are there to set up the initial environment conditions needed for running the app. They will import libraries and functions that are used for the analysis.
+
+To run the app, you must run every code expression in order. Each time you press _Ctrl + ENTER_, an expression will be run. Expressions may consist of multiple lines of code, so if you want to check what you run when pressing _Ctrl + ENTER_, you can always check the console.
+
+![This is how the console looks like when running code expressions](Settings/Images/Console_example.png)
 
 ## Importing packages
 
 This program requires to install and import external libraries for its functioning. They are _cli_, _ggplot2_, _ggraph_, _glue_, _here_, _igraph_, _jsonlite_, _pdftools_, _readr_, _showtext_, _sysfonts_, _tidygraph_, _tidytext_, and _tidyverse._ If you have them installed (for example, if you are using the SDG Mapper for the first time), you can skip the following chunk to import them. However, **if you need to install the packages**, you can do it here:
 
-```{r message=FALSE}
-# install.packages('cli')
-# install.packages('ggplot2')
-# install.packages('ggraph')
-# install.packages('glue')
-# install.packages('here')
-# install.packages('igraph')
-# install.packages('jsonlite')
-# install.packages('pdftools')
-# install.packages('readr')
-# install.packages('showtext')
-# install.packages('sysfonts')
-# install.packages('tidygraph')
-# install.packages('tidytext')
-# install.packages('tidyverse')
-# install.packages('tm')
-# install.packages('caTools')
+```{r message=FALSE, eval=FALSE}
+install.packages('cli')
+install.packages('ggplot2')
+install.packages('ggraph')
+install.packages('glue')
+install.packages('here')
+install.packages('igraph')
+install.packages('jsonlite')
+install.packages('pdftools')
+install.packages('readr')
+install.packages('showtext')
+install.packages('sysfonts')
+install.packages('tidygraph')
+install.packages('tidytext')
+install.packages('tidyverse')
+install.packages('tm')
+install.packages('caTools')
 ```
 
 In addition to the external packages, the functions of the SDG Mapper must be sourced. Also, the fonts used for plotting must be initialized. You can do all of that with the next code chunk.
 
 ```{r Importing libraries, message=FALSE, warning=FALSE}
-library(cli)
+library(here)
 library(ggplot2)
 library(ggraph)
-library(glue)
-library(here)
-library(igraph)
-library(jsonlite)
-library(pdftools)
-library(readr)
-library(showtext)
-library(sysfonts)
 library(tidygraph)
-library(tidytext)
-library(tidyverse)
+library(igraph)
 library(tm)
 library(SnowballC)
 library(caTools)
 library(randomForest)
-
-source(here('DataReader.R'), local = knitr::knit_global())
-source(here('ViewResults.R'), local = knitr::knit_global())
-source(here('AnalysisModule.R'), local = knitr::knit_global())
+library(showtext)
+source(here('src', 'DataReader.R'))
+source(here('src', 'Mapper.R'))
+source(here('src', 'ViewResults.R'))
+source(here('src', 'AnalysisModule.R'))
 
 initialise_fonts()
 ```
 
 ## Loading the dataset
 
-There are two options for loading your data to the SDG Mapper. The first one is to create a new analysis and extracting the texts of all the PDF files in a folder. The second one is to retrieve the saved data from a previous analysis. You can only choose one of the options that are described next.
+There are two options for loading your data to the SDG Mapper. The first one is to create a new analysis and extract the texts of all the PDF files from a folder. The second one is to retrieve the saved data from a previous analysis. For your first run, you must **start a new analysis from scratch**.
 
 ### Start a new analysis from scratch
 
@@ -120,131 +126,114 @@ You can adjust these variables using the first three lines of code in the chunk.
 3. `FILENAME` Is the name of the file that will be saved with the pre-processed data. It will be located in the *'Saves/data'* folder in the main directory of the app. You can write any string inside quotation marks.
 
 ```{r Extracting texts, message=FALSE}
-FOLDERNAME <- 'Test'    # Name of the folder that contains the PDF files
+FOLDERNAME <- 'PADs'    # Name of the folder that contains the PDF files
 SAVE_RESULTS <- TRUE    # Must be TRUE or FALSE
-FILENAME <- 'Test'      # The name of the file that will contain the saved results
+FILENAME <- 'PADs'      # The name of the file that will contain the saved results
 
 # Extracting the texts from all the PDF files in a folder
 texts <- extract(FOLDERNAME)
 
 # You can tidy the extracted texts
 tidy <- tidify(texts,
-               token = 'sentences',
-               low_lim = 0,
-               up_lim = 1,
-               export_json = SAVE_RESULTS,
+               token='sentences',
+               low_lim = 0.65,
+               up_lim = 0.7,
+               export_json = TRUE,
                version_name = FILENAME)
 ```
 
-### Retrieving previously saved pre-processed data
+## Classification model
 
-You can retrieve a previously saved file using the function `from_saves()`. To use it, you must write the name of the previously saved file. It must be the same as the `FILENAME` used for running the pre-processing.
+### Merging the training dataset with the input data
 
-```{r Using previously saved data, message=FALSE}
-# tidy <- from_saves('Test')
-# results <- generate_testData(tidy)
-```
-
-
-## Classifying the loaded data
-
-# Random Forest Algorithm for text classification
-
-## Import datasets to train and classify
+The training dataset is a collection of phrases that are mapped to the SDG Targets. They are imported as `data_training`. On the other hand, the _input data_ are the extracted texts from the PDFs, here named as `tidy`.
 
 ```{r message=FALSE}
-dataset_original <- read.csv('Data_WB_2.csv', header = TRUE, sep = ';') ## Import the base dataframe
-dataset_to_predict <- read.csv('to_predict.csv', header = TRUE, sep = ';') ## Import the data set to predict
-dataset_original_F <- rbind(dataset_original, dataset_to_predict) ## Combine the two datasets
+# ----- Data set-up for the classification model ---------- 
+
+# Import the data used for training the model
+data_training <- read.csv(here('Settings/Training_data.csv'),
+                          header = TRUE,
+                          sep = ',')
+
+# Combine the training data set with the extracted texts
+data_complete <- rbind(data_training, tidy)
+
+data_complete <- data_complete %>%
+    mutate(Text = str_replace_all(data_complete$Text, '[^A-Za-z ]', ''))
+
+# Capturing the data sets' length
+nrows_data_t <- nrow(data_training)
+nrows_data_c <- nrow(data_complete)
+
+rm(data_training)
 ```
 
-## develop a corpus and a DTM:: Document Term Matrix
+### Create the working data set using a Data Term Matrix (DTM) and the complete data set
 
 ```{r message=FALSE}
-corpus_dtm <- function(doc_term_mx) {
-     corpus <- VCorpus(VectorSource(dataset_original_F$Text)) # The VectorSource is the column of the DataFrame from which we want to work with
-     corpus <- tm_map(corpus, content_transformer(tolower)) # Lowercase all the textdata of out corpus
-     corpus <- tm_map(corpus, removeNumbers) # If needed: remove numbers
-     corpus <- tm_map(corpus, removePunctuation) # Remove punctuation
-     corpus <- tm_map(corpus, removeWords, stopwords(kind = 'en')) # Remove stop Words
-     corpus <- tm_map(corpus, stemDocument) # Conduct the stemming process: to reduce a word to its root. Reading -> read, playing -> play
-     corpus <- tm_map(corpus, stripWhitespace) # Eliminate multiple whitespaces
-     dtm <- DocumentTermMatrix(corpus) # Create the 'Bag of Words' model
-     return(dtm)
-}
+# Create a Document Term Matrix (DTM)
+dtm <- corpus_dtm(data_complete)
 
-corpus_dtm()
+# Create the working data set
+working_dataset <- codify(dtm, data_complete)
+rm(dtm) 
 ```
 
-## Tansform the data into a dataframe and codify sdg as a Factor
+### Create the model and train it with the training data set
 
-```{r message=FALSE}
-dataset_DF <- function(data_DF_factor) {
-     dataset <- as.data.frame(as.matrix(corpus_dtm()))
-     dataset$SDG <- dataset_original_F$SDG
-     str(dataset_original_F)
-     return(dataset)
-}
+```{r Creating and training Random Forest Model, warning=FALSE}
+# Set random seed
+set.seed(612)
 
-dataset_DF()
+# Select training data
+x_train <- working_dataset[1:nrows_data_t,]
+x_train$Target <- factor(x_train$Target)
 
-## tranform the dataset
-data_set_to_work <- dataset_DF()
+# Select test data
+x_test <- working_dataset[nrows_data_t:nrows_data_c,]
+x_test <- x_test %>% slice(-1)
+x_test$Target <- factor(x_test$Target)
 
-### codify SDG as a factor: variable to classify with the model
-codify <- function(data_to_codify){
-     data_set_to_work <- dataset_DF() # save the previous output as a variable
-     data_set_to_work$SDG <- factor(data_set_to_work$SDG) # Codify the variable to use as a factor
-     levels(data_set_to_work$SDG) # Review the levels/factors: SDG targets
-     return(data_set_to_work)
-}
+rm(working_dataset)
 
-### pint lenght of the columns of the dataframe so we can perform the model within the boundaries
-length(data_set_to_work) # print the length of the dataset: Very important for the model
+ncols_dtm <- dim(x_train)[2]
+
+# Train the random forest model using the training data set
+t0 <- Sys.time()
+cli_alert_info(paste0("The model is being trained. Please wait, this", 
+                      "process can take several minutes."))
+classifier <- randomForest(x = x_train[, -ncols_dtm],
+                           y = x_train$Target,
+                           ntree = 51)
+rm(x_train)
+cli_alert_success(paste0(
+    "The model was trained successfully after",
+    difftime(time1 = t0, time2 = Sys.time(), units = "min")))
 ```
 
-### Create the model and split the data in train and test
-**set seed**
+### Classifying the documents
 
-```{r message=FALSE}
-# set.seed(612)
-# 
-## Train data
-data1234 <- length(dataset_original[[1]])
-x_train <- data_set_to_work[1:1357, ]
-x_train$SDG <- factor(x_train$SDG)
+```{r Classify the projects with the SDG Targets, warning=FALSE}
+# Classify the input data -- Map the projects to the SDGs
+y_pred <- predict(classifier, newdata = x_test[, -ncols_dtm])
+rm(x_test)
 
-# Test data
-data5678 <- length(dataset_original_F[[1]])
-x_test <- data_set_to_work[data1234: data5678, ]
-x_test <- x_test[-1, ]
-x_test$SDG <- factor(x_test$SDG)
+# Save the results in a character vector
+classified <- character()
+for (goal in y_pred) {classified = c(classified, goal)}
 
-dim(x_train)
-dim(x_test)
+# Subset the data frame and paste the classified data
+results <- data_complete %>%
+    slice(nrows_data_t+1: nrows_data_c)
 
-## Adjust the random forest model to the training set
-classifier <- randomForest(x = x_train[, -775],
-                           y = x_train$SDG,
-                           ntree = 101)
+rm(data_complete)
 
-#Predict the results with the testing set
-y_pred <- predict(classifier, newdata <- x_test[, -775])
+results$Target <- classified
 
-## Save the resutls
-# create an empty character vector and fill in my vector by creating a for-loop
-my_predicted_results <- character()
-my_predicted_results
-results_to_map <- c()
-for (i in y_pred) {results_to_map=c(results_to_map, i)}
-
-# print the results
-results_to_map
-
-### subset the dataframe and paste the classified data to delveop the graphics
-results <- dataset_original_F[c(1358: length(dataset_original_F$Project)), c(1:3)]
-results["SDG"][results["SDG"] == "A"] <- results_to_map
-View(results)
+results <- identify_SDGs(results)
+results <- results %>% dplyr::filter(SDG %in% glue("SDG {1:17}"))
+results <- as_tibble(results)
 ```
 
 ## Data analysis
@@ -265,8 +254,6 @@ Also, the data can be summarized using the `count_matches()`, `count_occurrence(
 8. **net:** it is an _igraph_ network dataframe that can be plotted with _ggraph_.
 
 ```{r Data summaries, message=FALSE}
-results <- identify_SDGs(results)
-
 # Total matches by project -------------------------------> can feed a histogram
 matches_T <- count_matches(results,
                            by = 'total_matches',
@@ -290,16 +277,13 @@ occurrence_SDG <- count_occurrence(results,
                                    collapse_projects = TRUE)
 
 
-# Identify the main SDG in each project. From binary == TRUE identifies the main
-# SDG with the sum of the binary frequencies (presence or absence of a target)
-# of all targets in a SDG.
+# Identify the main SDG in each project
 # -------------------------------> can feed a column plot and be exported to csv
 main_SDGs <- get_main_SDG(results,
                           from_binary = FALSE,
-                          collapse_SDG = FALSE)
+                          collapse_SDG = TRUE)
 
 SDGs_proj <- get_SDGs_proj(results)
-
 
 # Results as matrix ------------------------------------------------------------
 
@@ -318,7 +302,7 @@ net <- generate_network(results)
 
 These summary tables can be exported using the functions in the next chunk. The function `export_summary()` takes two arguments inside its brackets. The first argument is a summary data table (any of the ones created before). The second, is the name of the file exported. This function exports _'.csv'_ files to the folder _'Output/data'_, inside the main directory of this app.
 
-```{r Exporting summaries, message=FALSE}
+```{r Exporting summaries, warning=FALSE}
 export_summary(matches_T, 'total_matches_by_project')
 export_summary(matches_SDG, 'total_matches_by_SDG')
 export_summary(matches_tgt, 'total_matches_by_tgt')
@@ -341,16 +325,16 @@ The SDG Mapper Tool can create six different plots for the analysis. They are:
 
 ### SDG Occurrence
 
-The SDG Occurrence plot is a bar plot that shows the number of projects that each SDG has been mapped to.
+The SDG Occurrence plot is a bar plot showing the number of projects each SDG has been mapped to.
 
 ```{r Occurrence plot}
 occurrence_SDG %>% plot_results(
     title = 'Occurrence of the SDGs',
     xlabel = 'SDG',
     ylabel = 'Number of projects',
-    fontsize_barlabs = 10,
-    fontsize_title = 50,
-    fontsize_axis = 30,
+    fontsize_barlabs = 7,
+    fontsize_title = 30,
+    fontsize_axis = 12,
     scale = 1,
     dpi = 96)
 ```
@@ -364,12 +348,12 @@ matches_SDG %>% plot_results(
     title = 'Matches by SDG',
     xlabel ='SDG',
     ylabel ='Number of matches',
-    fontsize_title = 50,
-    fontsize_axis = 30,
+    fontsize_barlabs = 7,
+    fontsize_title = 30,
+    fontsize_axis = 12,
     dpi = 96,
     scale = 1)
 ```
-
 
 ### Predominant SDG
 
@@ -380,8 +364,9 @@ main_SDGs %>% plot_results(
     title = 'Predominant SDGs',
     xlabel = 'SDG',
     ylabel = 'Number of projects',
-    fontsize_title = 50,
-    fontsize_axis = 30,
+    fontsize_barlabs = 7,
+    fontsize_title = 30,
+    fontsize_axis = 12,
     dpi = 96,
     scale = 1)
 ```
@@ -395,24 +380,18 @@ results %>% plot_SDG_distribution(
     binwidth = 2,
     title = "Distribution of the number of SDGs",
     subtitle = "mapped by project",
-    test = TRUE,
-    fontsize_title = 35,
-    fontsize_subt = 25,
-    fontsize_axis = 20,
+    test = FALSE,
+    fontsize_title = 20,
+    fontsize_subt = 15,
+    fontsize_axis = 12,
     dpi = 96)
 ```
 
 ### Network graph
 
-This image shows the interconnection between the SDGs. We considered that two SDGs interact if they coexist in the same project. The network graph is an aggregate of the coexistance between the SDGs across the World Bank's portfolio.
+This image shows the interconnection between the SDGs. We considered that two SDGs interact if they coexist in the same project. The network graph aggregates the coexistence of SDGs across the World Bank’s portfolio.
 
 ```{r Network graph}
 plot_network(results)
-```
-
-### Saving the figures
-
-```{r Exporting the plots, message=FALSE}
-# 
 ```
 

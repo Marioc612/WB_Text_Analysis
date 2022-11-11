@@ -229,6 +229,9 @@ tidify <- function(df,
 
     }
 
+    tibblist <- tibblist %>%
+        mutate(Target = 'A')
+
     return(tibblist)
 }
 

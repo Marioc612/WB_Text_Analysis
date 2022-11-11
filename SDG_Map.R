@@ -19,13 +19,9 @@ preset_analysis(analysis_mode = 'test',
                 export_summaries = TRUE)
 
 
-# ====== Setting up text fonts =================================================
-initialise_fonts()
-# ------------------------------------------------------------------------------
-
 
 # ====== Loading the saved data instead of processing it again =================
-texts <- extract('Test')
+texts <- extract('PADs')
 
 # You can tidy the extracted texts
 tidy <- tidify(texts,
@@ -33,17 +29,14 @@ tidy <- tidify(texts,
                low_lim = 0.65,
                up_lim = 0.7,
                export_json = TRUE,
-               version_name = 'Test')
+               version_name = 'PADs')
 # --------------------------- or Using previously pre-processed results
-tidy <- from_saves('Test')
-results <- tidy %>%
-    mutate(Target = 'A')
+tidy <- from_saves('PADs')
 
-# Using test data
-results <- generate_testData(tidy)
-results <- identify_SDGs(results)
 
 # ===== Machine learning model =================================================
+
+# ----- Data set-up for the classification model ----------
 
 # Import the data used for training the model
 data_training <- read.csv(here('Settings/Training_data.csv'),
@@ -52,7 +45,7 @@ data_training <- read.csv(here('Settings/Training_data.csv'),
 
 # Combine the training data set with the extracted texts
 data_complete <- rbind(data_training,
-                       results)
+                       tidy)
 
 data_complete <- data_complete %>%
     mutate(Text = str_replace_all(data_complete$Text, '[^A-Za-z ]', ''))
@@ -66,19 +59,14 @@ rm(data_training)
 # Create a Document Term Matrix (DTM)
 dtm <- corpus_dtm(data_complete)
 
-# I think this is unnecessary, as *dataset_DF()* is executed in *codify()*
-# # Transform the data set
-# data_set_to_work <- dataset_DF(dtm, data_complete)
-
-t0 <- Sys.time()
+# Create the working data set
 working_dataset <- codify(dtm, data_complete)
-tf <- Sys.time()
-print(tf - t0)
-
-# We don't need *dtm* anymore, so we remove it from the environment
 rm(dtm)
 
-# Create the model and split the data in train and test
+
+# ----- Create the random forest model -----------
+
+# Set random seed
 set.seed(612)
 
 # Select training data
@@ -96,22 +84,21 @@ ncols_dtm <- dim(x_train)[2]
 
 # Train the random forest model using the training data set
 t0 <- Sys.time()
+cli_alert_info(paste0("The model is being trained. Please wait, this",
+                      "process can take several minutes."))
 classifier <- randomForest(x = x_train[, -ncols_dtm],
                            y = x_train$Target,
-                           ntree = 101)
+                           ntree = 51)
 rm(x_train)
-tf <- Sys.time()
-print(tf - t0)
-
+cli_alert_success(paste0(
+    "The model was trained successfully after",
+    difftime(time1 = t0, time2 = Sys.time(), units = "min"), " minutes"))
 
 # Classify the input data -- Map the projects to the SDGs
-t0 <- Sys.time()
 y_pred <- predict(classifier, newdata = x_test[, -ncols_dtm])
 rm(x_test)
-tf <- Sys.time()
-print(tf - t0)
 
-# Save the results
+# Save the results in a character vector
 classified <- character()
 for (goal in y_pred) {classified = c(classified, goal)}
 
@@ -162,7 +149,7 @@ count_occurrence(results, by = 'SDG', collapse_projects = FALSE)
 # -------------------------------> can feed a column plot and be exported to csv
 main_SDGs <- get_main_SDG(results,
                           from_binary = FALSE,
-                          collapse_SDG = FALSE)
+                          collapse_SDG = TRUE)
 
 SDGs_proj <- get_SDGs_proj(results)
 
@@ -182,7 +169,7 @@ matrix_absolute <- results_matrix(results,
 
 initialise_fonts()
 
-occ <- occurrence_SDG %>% plot_results(
+occurrence_SDG %>% plot_results(
     title = 'Testing',
     xlabel = 'SDG',
     ylabel = 'Number of projects',
@@ -192,24 +179,26 @@ occ <- occurrence_SDG %>% plot_results(
     scale = 1,
     dpi = 96)
 
-export_plot(occ, 'a', dpi = 300)
-
-matches <- matches_SDG %>% plot_results(
-    title = 'Testing 2',
+matches_SDG %>% plot_results(
+    title = 'Matches of the SDGs',
+    subtitle = '(Number of times each SDG was mapped)',
     xlabel ='SDG',
-    ylabel ='Number of matches',fontsize_barlabs = 5,
+    ylabel ='Number of matches',
+    fontsize_barlabs = 5,
     scale = 2)
 
-main_SDG <- main_SDGs %>% plot_results(
-    title = 'Main SDG',
+main_SDGs %>% plot_results(
+    title = 'Predominant SDGs',
+    subtitle = 'Across the portfolio',
     xlabel = 'SDG',
     ylabel = 'Number of projects',
     scale = 1)
 
-histo <- results %>% plot_SDG_distribution(
+results %>% plot_SDG_distribution(
     binwidth = 2,
-    title = "Testing 3",
-    test = TRUE)
+    title = "Distribution of the SDGs",
+    subtitle = "By the number of projects they map to",
+    test = FALSE)
 
 
 # Network ======================================================================
@@ -217,4 +206,11 @@ histo <- results %>% plot_SDG_distribution(
 # Generate network from results --------------------
 net <- generate_network(results)
 
-graph <- plot_network(results)
+graph <- plot_network(results,
+                      fontsize_base = 23,
+                      fontsize_title = 40,
+                      fontsize_subt = 30,
+                      dpi = 96,
+                      scale = 1)
+
+graph

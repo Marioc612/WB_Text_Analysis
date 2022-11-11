@@ -282,14 +282,18 @@ results_matrix <- function(mapping_res,
 
 generate_network <- function(mapping_res) {
     # Count SDGs
-    results <- mapping_res %>%
+    res <- mapping_res %>%
         count_occurrence('SDG') %>%
         mutate(Color = NULL)
 
+    # Get unique projects with more than one SDG mapped
+    projects_for_net <- res %>% count(Project) %>% filter(n > 1)
+    projects_for_net <- as.character(projects_for_net$Project)
+
     # Iterate through documents
     tibblist <- list()
-    for (project in unique(results$Project)) {
-        a <- results %>% filter(Project == project)
+    for (project in unique(projects_for_net)) {
+        a <- res %>% filter(Project == project)
         a <- as.list(a$SDG)
 
         a <- combn(a, 2, simplify = FALSE)
@@ -385,6 +389,7 @@ plot_results <- function(data,
         theme_minimal() +
         theme(
             aspect.ratio = 0.4,
+            axis.title = element_text(family = font),
             axis.title.x = element_text(size = fontsize_axis,
                                         margin = ggplot2::margin(15, 0, 0, 0)),
             axis.title.y = element_text(size = fontsize_axis,
@@ -392,7 +397,8 @@ plot_results <- function(data,
             axis.text.x = element_text(angle = 90,
                                        vjust = 0.5,
                                        hjust = 0),
-            axis.text = element_text(size = fontsize_axis),
+            axis.text = element_text(size = fontsize_axis,
+                                     family = font),
             legend.position = 'none',
             plot.title = element_text(size = fontsize_title,
                                       face = 'bold',
@@ -542,12 +548,14 @@ plot_SDG_distribution <- function(mapping_res,
         theme_minimal() +
         theme(
             aspect.ratio = 0.4,
-            axis.title = element_text(size = fontsize_axis),
+            axis.title = element_text(size = fontsize_axis,
+                                      family = font),
             axis.text.x = element_text(angle = 0,
                                        vjust = 0.5,
                                        hjust = 1,
                                        size = fontsize_axis),
             axis.text.y = element_text(size = fontsize_axis),
+            axis.text = element_text(family = font),
             plot.title = element_text(size = fontsize_title,
                                       face = 'bold',
                                       hjust = 0,
@@ -571,7 +579,8 @@ plot_SDG_distribution <- function(mapping_res,
                       colour = 'red',
                       alpha = 1,
                       ),
-                  size = fontsize_axis/.pt
+                  size = fontsize_axis/.pt,
+                  family = font
         ) +
         ggtitle(title, subtitle)
 
