@@ -1,4 +1,4 @@
-source(here('src', 'AnalysisModule.R'))
+source(here::here('src', 'AnalysisModule.R'))
 
 run_mapper()
 
@@ -9,9 +9,7 @@ texts <- extract('Test')
 tidy <- tidify(texts,
                token='sentences',
                low_lim = 0.65,
-               up_lim = 0.7,
-               export_json = TRUE,
-               version_name = 'PADs')
+               up_lim = 0.7)
 # --------------------------- or Using previously pre-processed results
 tidy <- from_saves('PADs')
 
@@ -21,9 +19,15 @@ tidy <- from_saves('PADs')
 # ----- Data set-up for the classification model ----------
 
 # Import the data used for training the model
-data_training <- read.csv(here('Settings/Training_data.csv'),
-                          header = TRUE,
-                          sep = ',')
+# Data set-up for the classification model
+# Connect to the training database
+conn <- dbConnect(RSQLite::SQLite(),
+                  here("Settings", "training_data.db"))
+
+# Import the data used for training the model
+data_training <- dbGetQuery(conn, glue("SELECT * FROM EUT"))
+
+dbDisconnect(conn)
 
 # Combine the training data set with the extracted texts
 data_complete <- rbind(data_training,
