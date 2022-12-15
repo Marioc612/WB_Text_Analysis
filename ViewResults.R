@@ -203,11 +203,8 @@ get_main_SDG <- function(mapping_res,
 
     main <- mapping_res %>%
         group_by(Project) %>%
-        slice_max(Frequency, n = 1) %>%
-        mutate(Frequency = 1) %>%
-        arrange(str_sort(SDG, numeric = TRUE)) %>%
-        group_by(Project) %>%
-        slice(1)
+        top_n(1, Frequency) %>%
+        mutate(Frequency = 1)
 
     if (collapse_SDG == TRUE) {
         main <- main %>%
@@ -255,9 +252,15 @@ results_matrix <- function(mapping_res,
         replace(is.na(.), 0) %>%
         column_to_rownames('Project')
 
-    main_goals <- get_main_SDG(mapping_res,
-                               from_binary = FALSE,
-                               collapse_SDG = FALSE)$SDG
+    # Identifying the main goals -----------------------------------------------
+    main_goals <- matrix_results %>%
+        rowwise() %>%
+        mutate(main_SDG = paste0(names(.)[c_across() == max(c_across())],
+                                 collapse = '_'
+        ))
+
+    main_goals <- main_goals %>% select(main_SDG)
+    main_goals <- main_goals[[1]]
 
     if (relative_freqs == TRUE) {
         unit <- '%'
@@ -282,18 +285,14 @@ results_matrix <- function(mapping_res,
 
 generate_network <- function(mapping_res) {
     # Count SDGs
-    res <- mapping_res %>%
+    results <- mapping_res %>%
         count_occurrence('SDG') %>%
         mutate(Color = NULL)
 
-    # Get unique projects with more than one SDG mapped
-    projects_for_net <- res %>% count(Project) %>% filter(n > 1)
-    projects_for_net <- as.character(projects_for_net$Project)
-
     # Iterate through documents
     tibblist <- list()
-    for (project in unique(projects_for_net)) {
-        a <- res %>% filter(Project == project)
+    for (project in unique(results$Project)) {
+        a <- results %>% filter(Project == project)
         a <- as.list(a$SDG)
 
         a <- combn(a, 2, simplify = FALSE)
@@ -389,33 +388,29 @@ plot_results <- function(data,
         theme_minimal() +
         theme(
             aspect.ratio = 0.4,
-            axis.title = element_text(family = font),
             axis.title.x = element_text(size = fontsize_axis,
-                                        margin = ggplot2::margin(15, 0, 0, 0)),
+                                        margin = margin(15, 0, 0, 0)),
             axis.title.y = element_text(size = fontsize_axis,
-                                        margin = ggplot2::margin(0, 15, 0, 0)),
+                                        margin = margin(0, 15, 0, 0)),
             axis.text.x = element_text(angle = 90,
                                        vjust = 0.5,
                                        hjust = 0),
-            axis.text = element_text(size = fontsize_axis,
-                                     family = font),
+            axis.text = element_text(size = fontsize_axis),
             legend.position = 'none',
             plot.title = element_text(size = fontsize_title,
                                       face = 'bold',
                                       hjust = 0,
-                                      margin = ggplot2::margin(0, 0, 0, 0),
-                                      family = font),
+                                      margin = margin(0, 0, 0, 0),
+                                      family = 'Roboto Condensed'),
             plot.subtitle = element_text(size = fontsize_subt,
                                          hjust = 0,
-                                         margin = ggplot2::margin(0, 0, 25, 0),
-                                         family = font)
+                                         margin = margin(0, 0, 25, 0)),
         )
     return(fig)
 }
 
 
 plot_network <- function(mapping_res,
-                         analysis_mode,
                          concentric = FALSE,
                          savefig = FALSE,
                          figname = NULL,
@@ -427,7 +422,7 @@ plot_network <- function(mapping_res,
                          fontsize_subt = 16,
                          dpi = 96,
                          scale = 1) {
-    folder <- outputs_folder(analysis_mode, 'img')
+    folder <- outputs_folder('img')
 
     net <- generate_network(mapping_res)
 
@@ -475,7 +470,7 @@ plot_network <- function(mapping_res,
             subtitle_size = fontsize_subt,
             base_size = fontsize_base,
             base_family = font,
-            plot_margin = ggplot2::margin(15, 15, 15, 15),
+            plot_margin = margin(15, 15, 15, 15),
         ) +
         # Title
         ggtitle(title,
@@ -500,7 +495,6 @@ plot_network <- function(mapping_res,
 
 
 plot_SDG_distribution <- function(mapping_res,
-                                  analysis_mode,
                                   binwidth = 2,
                                   title = NULL,
                                   subtitle = NULL,
@@ -517,7 +511,7 @@ plot_SDG_distribution <- function(mapping_res,
                                   scale = 1,
                                   transparent_bg = FALSE,
                                   test = FALSE) {
-    folder <- outputs_folder(analysis_mode, 'img')
+    folder <- outputs_folder('img')
 
     if (test == FALSE) {
         SDG_dist <- get_SDGs_proj(mapping_res)
@@ -550,23 +544,20 @@ plot_SDG_distribution <- function(mapping_res,
         theme_minimal() +
         theme(
             aspect.ratio = 0.4,
-            axis.title = element_text(size = fontsize_axis,
-                                      family = font),
+            axis.title = element_text(size = fontsize_axis),
             axis.text.x = element_text(angle = 0,
                                        vjust = 0.5,
                                        hjust = 1,
                                        size = fontsize_axis),
             axis.text.y = element_text(size = fontsize_axis),
-            axis.text = element_text(family = font),
             plot.title = element_text(size = fontsize_title,
                                       face = 'bold',
                                       hjust = 0,
-                                      margin = ggplot2::margin(0, 0, 0, 0),
+                                      margin = margin(0, 0, 0, 0),
                                       family = font),
             plot.subtitle = element_text(size = fontsize_subt,
                                          hjust = 0,
-                                         margin = ggplot2::margin(0, 0, 25, 0),
-                                         family = font),
+                                         margin = margin(0, 0, 25, 0)),
             legend.position = 'none'
         ) +
         geom_vline(xintercept = mean_goals,
@@ -581,8 +572,7 @@ plot_SDG_distribution <- function(mapping_res,
                       colour = 'red',
                       alpha = 1,
                       ),
-                  size = fontsize_axis/.pt,
-                  family = font
+                  size = fontsize_axis/.pt
         ) +
         ggtitle(title, subtitle)
 
@@ -645,12 +635,11 @@ plot_SDG_distribution <- function(mapping_res,
 
 export_plot <- function(plot,
                         figname,
-                        analysis_mode,
                         transparent_bg = FALSE,
                         dpi = 96,
                         scale = 1,
                         plot_width = 15.5) {
-    folder <- here(outputs_folder(analysis_mode, 'img'))
+    folder <- here(outputs_folder('img'))
 
     if (isSingleString(figname)) {
         if (transparent_bg == FALSE){
@@ -698,7 +687,6 @@ export_plot <- function(plot,
 
 
 prompt_export_plot <- function(data,
-                               analysis_mode,
                                title = NULL,
                                subtitle = NULL,
                                xlabel,
@@ -712,7 +700,7 @@ prompt_export_plot <- function(data,
                                dpi = 96,
                                scale = 1,
                                transparent_bg = FALSE) {
-    folder <- here(outputs_folder(analysis_mode, 'img'))
+    folder <- here(outputs_folder('img'))
 
     plot <- plot_results(data,
                          title,
@@ -759,7 +747,6 @@ prompt_export_plot <- function(data,
 
         export_plot(plot,
                     figname,
-                    analysis_mode,
                     transparent_bg = transparent_bg,
                     dpi = dpi,
                     scale = scale)
@@ -787,7 +774,6 @@ prompt_export_plot <- function(data,
 
 
 prompt_export_graph <- function(mapping_res,
-                                analysis_mode,
                                 concentric = FALSE,
                                 figname = NULL,
                                 title = "Interactions between the SDGs",
@@ -798,7 +784,7 @@ prompt_export_graph <- function(mapping_res,
                                 fontsize_subt = 16,
                                 dpi = 96,
                                 scale = 1) {
-    folder <- outputs_folder(analysis_mode, 'img')
+    folder <- outputs_folder('img')
 
     g <- plot_network(mapping_res,
                       concentric,
@@ -868,7 +854,6 @@ prompt_export_graph <- function(mapping_res,
 }
 
 prompt_export_histogram <- function(data,
-                                    analysis_mode,
                                     binwidth = 2,
                                     title = NULL,
                                     subtitle = NULL,
@@ -884,7 +869,7 @@ prompt_export_histogram <- function(data,
                                     scale = 1,
                                     transparent_bg = FALSE,
                                     test = FALSE) {
-    folder <- outputs_folder(analysis_mode, 'img')
+    folder <- outputs_folder('img')
 
     histogram <- plot_SDG_distribution(data,
                                        binwidth,
@@ -949,8 +934,8 @@ prompt_export_histogram <- function(data,
 }
 
 
-export_summary <- function(summary, filename, analysis_mode) {
-    folder <- outputs_folder(analysis_mode,'data')
+export_summary <- function(summary, filename) {
+    folder <- outputs_folder('data')
 
     write.csv(summary,
               glue("{folder}/{filename}.csv"),

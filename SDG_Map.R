@@ -1,27 +1,9 @@
-library(here)
-library(ggplot2)
-library(ggraph)
-library(tidygraph)
-library(igraph)
-library(tm)
-library(SnowballC)
-library(caTools)
-library(randomForest)
-library(showtext)
-source(here('src', 'DataReader.R'))
-source(here('src', 'Mapper.R'))
-source(here('src', 'ViewResults.R'))
 source(here('src', 'AnalysisModule.R'))
 
-preset_analysis(analysis_mode = 'test',
-                save_tidy_texts = FALSE,
-                tidy_texts_filename = 'Test',
-                export_summaries = TRUE)
-
-
+run_mapper()
 
 # ====== Loading the saved data instead of processing it again =================
-texts <- extract('PADs')
+texts <- extract('Test')
 
 # You can tidy the extracted texts
 tidy <- tidify(texts,

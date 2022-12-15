@@ -106,9 +106,7 @@ tidify <- function(df,
                    n = 2,
                    low_lim = 0,
                    up_lim = 1,
-                   network_mode = FALSE,
-                   export_json = FALSE,
-                   version_name = NULL) {
+                   network_mode = FALSE) {
     cli_h1(glue(
         "The tidying process has started. Please, be patient, this may ",
         "take a while"
@@ -194,6 +192,23 @@ tidify <- function(df,
     # Updates the progress bar to "Done" status
     cli_progress_done(result = "done")
 
+    cli_text("")
+    cli_text("Do you want to save your tidy texts for future analysis? ",
+             "Write '{col_green('Y')}' or '{col_green('y')}' to save them,",
+             "and '{col_green('N')}' or '{col_green('n')}' to discard.")
+
+    export_json <- invisible(readline())
+
+    if ((export_json == 'y') || export_json == 'Y') {
+        export_json <- TRUE
+
+        cli_text("")
+        cli_text(glue(
+            "Write the name of your saved data and ",
+            "press {col_green('ENTER')} to continue:\n\n"))
+        version_name <- invisible(readline())
+    } else {export_json <- FALSE}
+
     # Saves the results to a JSON file
     if (export_json == TRUE) {
 
@@ -204,9 +219,10 @@ tidify <- function(df,
         t_f_general <- Sys.time()
 
         # Prints that the process is done and the time it took to complete it
+        cli_text("")
         cli_alert_success(
             glue(
-                "\n\nDone! The process took ",
+                "Done! The process took ",
                 "{round(difftime(t_f_general, t_0_general, units = 'mins'), 2)} ",
                 "minutes"
             )
@@ -247,7 +263,28 @@ from_saves <- function(json_name) {
 }
 
 
-outputs_folder <- function(kind) {
-    file <- read_file(here(glue('Settings/{kind}_output_folder.txt')))
-    return(file)
+outputs_folder <- function(analysis_mode, kind) {
+    folders <- jsonlite::fromJSON(here("Settings", "output_folders.json"))
+    return(folders[[analysis_mode]][[kind]])
 }
+
+
+dir_checker <- function(silent = TRUE) {
+    required <- scan(here("Settings", "dirs_required.txt"),
+                     what = 'character',
+                     sep = '\n')
+    required <- here(required)
+
+    for (dir in required) {
+        if (!dir %in% list.dirs(here())) {
+            dir.create(dir)
+            print(glue("Created {dir} successfully"))
+        } else {
+            if (silent == FALSE) {
+                print(glue("{dir} exists."))
+            }
+        }
+    }
+}
+
+

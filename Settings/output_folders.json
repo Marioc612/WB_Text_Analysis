@@ -1,0 +1,5 @@
+{"SDGs": {"data": "Output/SDGs/data",
+          "img": "Output/SDGs/img"},
+ "EUT": {"data": "Output/EU Taxonomy/data",
+          "img": "Output/EU Taxonomy/img"}
+        }

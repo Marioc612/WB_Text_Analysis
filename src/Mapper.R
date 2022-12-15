@@ -66,6 +66,7 @@ codify <- function(dtm_data, complete_dataset){
 
     end <- Sys.time()
     print(end-start)
+    cli_text("")
     return(data_set_to_work)
 }
 
